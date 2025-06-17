@@ -16,7 +16,11 @@ jobs:
   lint-and-test:
     
     runs-on: ubuntu-latest
-    
+    env:
+      BOOTSTRAP_SERVERS: ${{ secrets.BOOTSTRAP_SERVERS }}
+      KAFKA_API_KEY: ${{ secrets.KAFKA_API_KEY }}
+      KAFKA_API_SECRET: ${{ secrets.KAFKA_API_SECRET }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
