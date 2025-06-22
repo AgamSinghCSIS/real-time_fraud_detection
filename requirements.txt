@@ -1,2 +1,6 @@
 confluent-kafka~=2.10.1
 python-dotenv
+SQLAlchemy
+psycopg2
+pandas
+pyyaml

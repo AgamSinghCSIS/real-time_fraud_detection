@@ -1,0 +1,36 @@
+# The config needs to be in order of Foreign key requirements.
+initial_load: False
+
+#If it is initial load, then provide a schema file for DDL construction
+#schema_file_path : configs/schema.yaml
+
+tables:
+  - table_name: customers
+    schema: core
+    file_path: data/customers.csv
+
+  - table_name: users
+    schema: core
+    file_path: data/users.csv
+
+  - table_name: credit_cards
+    schema: core
+    file_path: data/credit_cards.csv
+
+  - table_name: credit_card_user_map
+    schema: core
+    file_path: data/credit_card_user_map.csv
+
+  - table_name: devices
+    schema: core
+    file_path: data/devices.csv
+
+  - table_name: merchants
+    schema: core
+    file_path: data/merchants.csv
+
+
+
+
+
+

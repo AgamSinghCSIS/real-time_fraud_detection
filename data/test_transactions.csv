@@ -1,2 +1,2 @@
-transaction_id,user_id,card_id,merchant_id,amount,timestamp,location,device_id,ip_address,channel,session_id
-1cb3c025-351a-4184-8eb4-be2f7e62f452,a50a130f-4346-413e-a58b-3d1230ab8503,edda0a65-e49d-44f4-b05b-e75a3c34e2e4,f1050cbd-3c9d-4af1-9be6-6c089e535cc7,197.31,2025-06-08 08:39:49,POINT(-163.670153 -38.4164835),6ca99a27-36bb-49c3-a295-8bc848f85039,223.134.18.72,web,8f40e0fc-35f7-47e2-a781-f09e1c35c187
+transaction_id,card_id,merchant_id,amount,timestamp,location,device_id,ip_address,channel,session_id, new_column
+1cb3c025-351a-4184-8eb4-be2f7e62f452,edda0a65-e49d-44f4-b05b-e75a3c34e2e4,f1050cbd-3c9d-4af1-9be6-6c089e535cc7,197.31,2025-06-08 08:39:49,POINT(-163.670153 -38.4164835),6ca99a27-36bb-49c3-a295-8bc848f85039,223.134.18.72,web,8f40e0fc-35f7-47e2-a781-f09e1c35c187,test_schema_registry

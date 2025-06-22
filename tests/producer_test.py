@@ -1,12 +1,12 @@
 import csv
 import json
 import os
-from confluent_kafka import Consumer, TopicPartition
-from src.common.producer import producer_main
+from confluent_kafka import Consumer
+from src.streaming.producer import producer_main
 from time import sleep
 
 KAFKA_CONFIG = {
-    "bootstrap.servers": os.environ.get("BOOTSTRAP_SERVERS"),  # or your Confluent broker
+    "bootstrap.servers": os.environ.get("BOOTSTRAP_SERVERS"),
     'security.protocol': 'SASL_SSL',
     'sasl.mechanism': 'PLAIN',
     'sasl.username': os.environ.get("KAFKA_API_KEY"),
@@ -70,8 +70,7 @@ def test_producer():
 
     assert login_messages == expected_logins
     assert txn_messages == expected_txns
-
-
+    # This test needs to be modified to only read the latest message it finds from the test topics not all
 
 
 
