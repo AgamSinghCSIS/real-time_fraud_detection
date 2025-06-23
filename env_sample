@@ -1,0 +1,10 @@
+BOOTSTRAP_SERVERS='xxx.aws.confluent.cloud:9092'
+KAFKA_API_KEY='xxx---xxx---x'
+KAFKA_API_SECRET='xxxxxxxxxxxx'
+DIMSTORE_HOST= 'pg-xx-xx.us-east-2.rds.amazonaws.com'
+DIMSTORE_USER='x'
+DIMSTORE_PASS='xxx'
+DIMSTORE_DB='fraud_db'
+DATABRICKS_HOST='https://adbxxxxxx.databricks.net'
+DATABRICKS_TOKEN=dapifxxxxxxxxxxxx
+DATABRICKS_CLUSTER_ID=xxxxxxxxxx
