@@ -4,3 +4,8 @@ SQLAlchemy
 psycopg2
 pandas
 pyyaml
+setuptools
+databricks-connect==14.3.0
+pyspark==3.4.1
+py4j==0.10.9.7
+

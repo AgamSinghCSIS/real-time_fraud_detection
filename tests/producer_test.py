@@ -16,8 +16,8 @@ KAFKA_CONFIG = {
 }
 
 def test_producer():
-    test_login_file = 'data/test_logins.csv'
-    test_transaction_file = 'data/test_transactions.csv'
+    test_login_file = '../data/test_logins.csv'
+    test_transaction_file = '../data/test_transactions.csv'
     login_topic = "test_logins"
     txn_topic = "test_transactions"
 
