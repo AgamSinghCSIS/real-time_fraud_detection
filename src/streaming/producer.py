@@ -7,7 +7,7 @@ from src.common.logger import init_logger
 os.environ["LOGGER_NAME"] = "Producer"
 logger = init_logger(name=os.environ["LOGGER_NAME"], logfile="logs/kafka_producer.log")
 
-from src.common.kafka_utils import get_producer, simulate_transactions
+from src.streaming.kafka_utils import get_producer, simulate_transactions
 
 def producer_main(login_file, transaction_file, login_topic : str = 'logins', transaction_topic : str = 'transactions'):
     logger.info("Starting Producer...")

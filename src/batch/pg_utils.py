@@ -1,6 +1,4 @@
 import os
-from sys import int_info
-
 from sqlalchemy import create_engine, Engine, text
 from src.common.logger import get_logger
 from src.common.config_loader import load_schema, load_schema_file_path

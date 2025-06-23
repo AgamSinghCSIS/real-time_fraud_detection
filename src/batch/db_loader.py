@@ -6,7 +6,7 @@ logger_name = 'db_loader'
 os.environ["LOGGER_NAME"] = logger_name
 logger = init_logger(logger_name, 'logs/database_loader.log')
 
-from src.common.pg_utils import get_engine, initial_load, simulate_load
+from src.batch.pg_utils import get_engine, initial_load, simulate_load
 from src.common.config_loader import load_database_config
 
 
