@@ -9,8 +9,16 @@ PARENT_RELATIVE_PATH = "../../"
 
 
 def get_engine(username : str, password : str, host : str, database : str):
-    logger.info(f"Creating postgres Engine")
-    return create_engine(f"postgresql+psycopg2://{username}:{password}@{host}:5432/{database}")
+    logger.info(f"Creating postgres Engine for Database: {database}")
+    try:
+        engine = create_engine(f"postgresql+psycopg2://{username}:{password}@{host}:5432/{database}")
+        logger.info(f"Successfully acquired engine!")
+        return engine
+
+    except Exception as e:
+        logger.error(f"Failed to create engine: {e}")
+        exit()
+
 
 def upload_file_to_db(filepath, engine, schema_name, table_name, initial_load : bool = False):
     try:
@@ -42,7 +50,7 @@ def initial_load(engine : Engine, table_list):
 
             ddl = create_ddl(schema_name, table_name, table_schema)
             logger.debug(f"Trying to execute query: {ddl}")
-            execute_ddl(engine, ddl)
+            execute_query(engine, ddl)
             upload_file_to_db(filepath=data_file,engine=engine,schema_name=schema_name,table_name=table_name,initial_load=True)
 
     except Exception as e:
@@ -60,13 +68,36 @@ def create_ddl(schema, table, table_schema):
     query += " );"
     return query
 
-def execute_ddl(engine : Engine, query):
+
+def execute_query(engine : Engine, query : str, response_expected : bool = False, values : dict = None ):
     try:
+        logger.info(f"POSTGRES QUERY EXECUTION: Trying to execute query {query}")
         with engine.connect() as conn:
-            conn.execute(text(query))
-            conn.commit()
+            if response_expected:
+                if values is None:
+                    response = conn.execute(text(query)).fetchall()
+                    logger.info(f"POSTGRES QUERY EXECUTION SUCCESSFUL: Response received! {response}")
+
+                else:
+                    response = conn.execute(text(query), values).fetchall()
+                    logger.info(f"POSTGRES QUERY EXECUTION: Values: {values} successfully uploaded and response received!")
+
+                conn.commit()
+                return response
+
+            else:
+                if values is None:
+                     conn.execute(text(query))
+                else:
+                    conn.execute(text(query), values)
+                conn.commit()
+                logger.info("POSTGRES QUERY EXECUTION: Query executed successfully")
+
     except Exception as e:
-        logger.error(f"Error while executing DDL: {e}")
+        logger.error(f"POSTGRES QUERY EXECUTION EXCEPTION: Error while executing Query: {e}")
+        logger.info(f"POSTGRES QUERY EXECUTION EXCEPTION: Returning False")
+        return False
+
 
 def simulate_load(engine : Engine, table_list):
     """
@@ -86,7 +117,6 @@ def simulate_load(engine : Engine, table_list):
 
     except Exception as e:
         logger.error(f"Error while simulating load: {e}")
-
 
 
 

@@ -1,0 +1,49 @@
+batch:
+  dim_store:
+    tables:
+      - source_schema : "core"
+        source_table : "core.customers"
+        sink_table : "fraud_catalog.raw.customers"
+        replication_column : "last_modified_at"
+        expected_columns: ["customer_id","name","email","phone","dob","kyc_status","registration_date","last_modified_at"]
+
+      - source_schema: "core"
+        source_table: "core.users"
+        sink_table: "fraud_catalog.raw.users"
+        replication_column: "last_modified_at"
+        expected_columns: ["user_id","customer_id","name","email","phone","dob","kyc_status","registration_date","last_modified_at" ]
+
+      - source_schema: "core"
+        source_table: "core.credit_cards"
+        sink_table: "fraud_catalog.raw.credit_cards"
+        replication_column: "last_modified_at"
+        expected_columns: [ "card_id","credit_card_number","customer_id","status","issued_on","card_type","limit","last_modified_at" ]
+
+      - source_schema: "core"
+        source_table: "core.credit_card_user_map"
+        sink_table: "fraud_catalog.raw.credit_card_user_map"
+        replication_column: "last_modified_at"
+        expected_columns: [ "card_id","user_id","role","status","linked_on","last_modified_at" ]
+
+      - source_schema: "core"
+        source_table: "core.devices"
+        sink_table: "fraud_catalog.raw.devices"
+        replication_column: "last_modified_at"
+        expected_columns: [ "device_id","user_id","first_seen_at","device_type","os","is_verified","last_modified_at" ]
+
+      - source_schema: "core"
+        source_table: "core.merchants"
+        sink_table: "fraud_catalog.raw.merchants"
+        replication_column: "last_modified_at"
+        expected_columns: [ "merchant_id","name","risk_score","last_modified_at" ]
+
+    watermark_table: "core.ingestion_watermarks"
+
+  chargebacks:
+    bucket_name: ""
+    path: ""
+
+streaming:
+  kafka:
+    - topic_name: "logins"
+      sink_table: "fraud_catalog.raw.login_events"
