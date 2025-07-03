@@ -28,16 +28,16 @@ def get_dbx_session(retries=3, delay=10):
 def safe_get_spark(retries=3, delay=10):
     for i in range(retries):
         try:
-            logger.info(f"Trying to acquire Remote Databricks Session")
+            logger.info(f"ACQUIRE DBX SPARK: Trying to acquire Remote Databricks Session")
             spark = DatabricksSession.builder.getOrCreate()
             spark.sql("SELECT 1")  # Probe to validate session
-            logger.info(f"Session Successfully Acquired after {i} Retries!")
+            logger.info(f"ACQUIRE DBX SPARK: Session Successfully Acquired after {i} Retries!")
             return spark
         except Exception as e:
-            logger.error(f"[ATTEMPT{i + 1} FAILED]: {e} \n Retries left: {3 - i - 1}")
-            print(f"Retry {i+1} due to: {e}")
+            logger.error(f"ACQUIRE DBX SPARK: [ATTEMPT{i + 1} FAILED]: {e} \n Retries left: {3 - i - 1}")
+            print(f"ACQUIRE DBX SPARK: Retry {i+1} due to: {e}")
             time.sleep(delay)
-    raise RuntimeError("Unable to establish Spark session")
+    raise RuntimeError("ACQUIRE DBX SPARK: Unable to establish Spark session")
 
 
 def dbx_execute_query(spark : SparkSession, query : str, response_expected : bool = False):
@@ -72,3 +72,7 @@ def upload_df_to_dbx(df : DataFrame, dbx_table_name : str, output_mode : str = "
     except Exception as e:
         logger.error(f"Failed uploading dataframe to databricks with error: {e}")
         return False
+
+
+def spark_kafka_consumer():
+    pass

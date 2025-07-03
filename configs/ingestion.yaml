@@ -47,3 +47,10 @@ streaming:
   kafka:
     - topic_name: "logins"
       sink_table: "fraud_catalog.raw.login_events"
+      sample_event: '{"login_id": "e43ea563-301a-46c5-828e-f4bad610c9df", "user_id": "a50a130f-4346-413e-a58b-3d1230ab8503", "timestamp": "2025-06-08 08:39:49", "ip_address": "223.134.18.72", "device_id": "6ca99a27-36bb-49c3-a295-8bc848f85039", "geo_location": "POINT(-163.670153 -38.4164835)", "session_id": "8f40e0fc-35f7-47e2-a781-f09e1c35c187"}'
+
+    - topic_name: "transactions"
+      sink_table: "fraud_catalog.raw.transactions"
+
+
+

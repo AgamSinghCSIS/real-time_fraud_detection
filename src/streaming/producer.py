@@ -23,7 +23,7 @@ def producer_main(login_file, transaction_file, login_topic : str = 'logins', tr
         "test_logins": "login_id",
     }
 
-    producer = get_producer(bootstrap_server, security_protocol, username, password)
+    producer = get_producer(bootstrap_server=bootstrap_server, security_protocol=None, username=username, password=password)
     simulate_transactions(
         login_file_path=login_file,
         transaction_file_path=transaction_file,

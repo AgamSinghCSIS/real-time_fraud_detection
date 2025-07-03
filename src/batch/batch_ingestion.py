@@ -13,7 +13,7 @@ from src.batch.pg_utils import get_engine, execute_query
 from src.common.dbx_utils import get_dbx_session, dbx_execute_query, safe_get_spark, upload_df_to_dbx
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import lit, current_timestamp, current_date, to_json, struct, col, create_map, max, to_utc_timestamp
-from sqlalchemy import Engine
+from sqlalchemy.engine import Engine
 
 
 def ingest_dim_store():

@@ -1,0 +1,8 @@
+# requirements for local kafka streaming
+confluent-kafka~=2.10.1
+python-dotenv
+pandas
+pyyaml
+setuptools
+pyspark==3.4.1
+py4j==0.10.9.7

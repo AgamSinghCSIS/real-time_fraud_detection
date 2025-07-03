@@ -12,16 +12,21 @@ def get_producer(bootstrap_server : str, security_protocol : str, username : str
     """
     :return: A Kafka Producer, that can be used to publish events to kafka
     """
-    conf = {
-        'bootstrap.servers' : bootstrap_server,
-        'security.protocol' : security_protocol,
-        'sasl.mechanism' : 'PLAIN',
-        'sasl.username' : username,
-        'sasl.password' : password,
-        'client.id' : socket.gethostname()
-    }
-    return Producer(conf)
-
+    if security_protocol is not None:
+        conf = {
+            'bootstrap.servers' : bootstrap_server,
+            'security.protocol' : security_protocol,
+            'sasl.mechanism' : 'PLAIN',
+            'sasl.username' : username,
+            'sasl.password' : password,
+            'client.id' : socket.gethostname()
+        }
+        return Producer(conf)
+    else:
+        conf = {
+            'bootstrap.servers': bootstrap_server
+        }
+        return Producer(conf)
 
 def delivery_report(err, msg):
     """
@@ -68,3 +73,4 @@ def simulate_transactions(login_file_path : str, transaction_file_path : str, pr
 def find(session_id, txn_data : list):
     print(f"Session_id : {session_id}")
     return [txn for txn in txn_data if txn["session_id"] == session_id]
+

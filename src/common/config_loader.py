@@ -46,15 +46,19 @@ def load_ingestion_configs(pipeline : str, source : str):
     if pipeline.lower() == 'batch':
         if source.lower() == 'dim_store':
             tables_list = configs["batch"]["dim_store"]
-
             return tables_list
 
         elif source.lower() == 'filedrops':
             pass
 
     elif pipeline.lower() == 'streaming':
-        pass
+        if source.lower() == 'kafka':
+            sources = configs['streaming']['kafka']
+            return sources
 
+        else:
+            logger.critical("Source is not configured!")
+            return False
     else:
         return False
 
