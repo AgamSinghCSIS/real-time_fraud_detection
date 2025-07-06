@@ -4,6 +4,8 @@ import os
 from src.common.logger import get_logger
 
 logger = get_logger(os.environ.get("LOGGER_NAME"))
+
+current_dir = os.path.dirname(os.path.abspath(__file__))  # src/common
 PARENT_RELATIVE_PATH = '../../'
 
 def load_config(config_path):
@@ -39,7 +41,7 @@ def load_schema(schema_file_path):
     return schema
 
 def load_ingestion_configs(pipeline : str, source : str):
-    config_path = PARENT_RELATIVE_PATH + 'configs/ingestion.yaml'
+    config_path = os.path.abspath(os.path.join(current_dir, '../../configs/ingestion.yaml'))
     logger.info(f"Trying to load config file: {config_path}")
     configs = load_config(config_path=config_path)
 
