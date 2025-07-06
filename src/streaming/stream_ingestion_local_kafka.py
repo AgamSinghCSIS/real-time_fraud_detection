@@ -1,4 +1,15 @@
+import sys
 import os
+
+# Add the project root folder (one level above 'src') to PYTHONPATH
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+print(f"Running script from working dir: {os.getcwd()}")
+print(f"sys.path: {sys.path}")
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -6,17 +17,18 @@ os.environ['LOGGER_NAME'] = "KAFKA_INGESTION"
 from src.common.logger import init_logger
 logger = init_logger(os.environ.get("LOGGER_NAME"), logfile='./logs/ingestion.log')
 
-
-from src.common.dbx_utils import safe_get_spark
+from src.common.spark_utils import local_get_spark
 from src.common.config_loader import load_ingestion_configs
 
+import time
+import json
 import tempfile
 from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql.functions import col, from_json, to_date, array, array_except, map_keys, lit, expr
+from pyspark.sql.functions import col, from_json, to_date, array, array_except, map_keys, lit, expr, when, size
 from pyspark.sql.types import StructType, MapType, StringType
 from pyspark.sql.streaming.query import StreamingQuery
 
-def stream_kafka():
+def local_stream_kafka():
     sources = load_ingestion_configs(pipeline='streaming', source='kafka')
     if sources is False:
         logger.critical(f"KAFKA INGESTION: Cannot be triggered because loading configs failed!")
@@ -31,13 +43,13 @@ def stream_kafka():
     kafka_pass = os.environ.get("KAFKA_API_SECRET")
 
     if kafka_host == "localhost:9092":
-        logger.critical("KAFKA INGESTION: This script is for Databricks cluster")
-        logger.error("KAFKA INGESTION: Run src/streaming/stream_ingestion_local_kafka.py IN A LOCAL ENVIRONMENT")
-        logger.info(f"Exiting and failing...")
-        exit(100)
+        logger.info("SPARK: Acquiring Local Spark with Kafka jars")
+        spark = local_get_spark()
+
     else:
-        logger.info(f"SPARK: Acquiring Remote Databricks Spark")
-        spark = safe_get_spark()
+        logger.critical(f"Script only meant to be run for local setup! Failing...")
+        logger.info(f"Run: fraud_detection/src/streaming/stream_ingestion.py for confluent host")
+        exit(100)
 
     queries = []
     for source in sources:
@@ -47,7 +59,7 @@ def stream_kafka():
         checkpoint = source['checkpoint']
 
         if not topic or not sink:
-            logger.error(f"KAFKA INGESTION: Config file is corrupted! Configs not as expected.\nSkipping Source: {source}")
+            logger.error(f"KAFKA INGESTION: Config file is corrupted! Configs expect topic_name, sink_table and sample_event.\nSkipping Source: {source}")
             continue
         logger.info(f"KAFKA INGESTION: Processing topic {topic}")
 
@@ -76,16 +88,11 @@ def stream_kafka():
 def ingest_stream(spark : SparkSession, kafka_host : str, kafka_user : str, kafka_pass : str, topic_name : str, sink_name : str, checkpoint_location : str, sample_string : str):
 
     logger.info("INGESTING STREAM: ...")
-
     logger.info(f"INGESTING STREAM: Extracting schema for topic: {topic_name}!")
     schema = extract_schema_from_sample(spark=spark, sample_event=sample_string)
-
     if schema is False:
         logger.error(f"INGESTING STREAM: Failed Schema inference, Returning False")
         return False
-
-    logger.info(f"INGESTING STREAM: Extracting Schema Successful! {schema}")
-
 
     logger.info(f"INGESTING STREAM: Building Kafka Parameter dictionary!")
     kafka_params = get_kafka_params(kafka_user=kafka_user, kafka_pass=kafka_pass, kafka_topic=topic_name)
@@ -109,6 +116,7 @@ def ingest_stream(spark : SparkSession, kafka_host : str, kafka_user : str, kafk
         return False
     logger.info(f"INGESTING STREAM: Paring + Metadata Successful!")
 
+    # Start loading to sink location
     if topic_name == 'transactions':
         parsed_df = parsed_df.withColumn("is_chargeback", lit(False))
 
@@ -153,13 +161,23 @@ def extract_schema_from_sample(spark : SparkSession, sample_event : str) -> Stru
                 print(f"STREAM EXTRACTION SCHEMA: Error deleting temporary file: {str(e)}")
 
 
+
 def trigger_stream(spark : SparkSession, kafka_host : str, params : dict):
     logger.info(f"STREAM TRIGGERING: Trying to trigger ")
     try:
+        """
+        logger.info(f"STREAM TRIGGERING: Local Kafka Stream from topic: {params['subscribe']}")
+        df = (spark.readStream
+                .format("kafka")
+                .option("kafka.bootstrap.servers", "localhost:9092")
+                .options(**params)
+                .load())
+
+        """
         df = (spark.readStream
                 .format("kafka")
                 .option("kafka.bootstrap.servers", kafka_host)
-                .option('kafka.security.protocol', "SASL_SSL")
+                .option('kafka.security.protocol', "PLAINTEXT")
                 .options(**params)
                 .load()
         )
@@ -174,8 +192,6 @@ def trigger_stream(spark : SparkSession, kafka_host : str, params : dict):
         logger.error(f"STREAM TRIGGERING: Failed with error {e}")
         logger.error(f"STREAM TRIGGERING: Defaulting to return False ")
         return False
-
-
 
 
 def parse_df(df : DataFrame, expected_schema : StructType):
@@ -238,18 +254,6 @@ def parse_df(df : DataFrame, expected_schema : StructType):
 
 
 
-
-def get_kafka_params(kafka_user : str, kafka_pass : str, kafka_topic : str) -> dict:
-    kafka_params = {
-        "kafka.sasl.jaas.config": f"kafkashaded.org.apache.kafka.common.security.plain.PlainLoginModule required username='{kafka_user}' password='{kafka_pass}';",
-        "kafka.sasl.mechanism": "SASL",
-        "subscribe": kafka_topic,
-        "failOnDataLoss": "false",
-        "startingOffsets": "earliest"
-    }
-    return kafka_params
-
-
 def load_dataframe(spark : SparkSession, df : DataFrame, sink_location : str, checkpoint_location : str) -> StreamingQuery:
     # Local Script, so cannot use unity catalog location, but will instead need a adls path
     try:
@@ -257,17 +261,27 @@ def load_dataframe(spark : SparkSession, df : DataFrame, sink_location : str, ch
         logger.info(f"STREAM LOADING: checkpoint location: {checkpoint_location}")
 
         query = (df.writeStream
-                 .format("delta")
-                 .outputMode("append")
-                 .option("checkpointLocation", checkpoint_location)
-                 .start(sink_location)
-                 )
+                    .format("delta")
+                    .outputMode("append")
+                    .option("checkpointLocation",checkpoint_location)
+                    .start(sink_location)
+        )
         logger.info(f"STREAM LOADING: WriteStream Started with StreamingQuery: {query}")
         return query
 
     except Exception as e:
         logger.error(f"STREAM LOADING: Failed to load microBatch to {sink_location} with error: {e}")
         return False
+
+
+def get_kafka_params(kafka_user : str, kafka_pass : str, kafka_topic : str) -> dict:
+    local_kafka_params = {
+        "subscribe": kafka_topic,
+        "failOnDataLoss": "false",
+        "startingOffsets": "earliest"
+    }
+    return local_kafka_params
+
 
 def monitor_queries(queries: list[StreamingQuery], log_interval_sec: int = 30):
     try:
@@ -307,4 +321,4 @@ def monitor_queries(queries: list[StreamingQuery], log_interval_sec: int = 30):
 """How will streaming jobs be run?: They will simply be triggered by this script"""
 
 if __name__ == '__main__':
-    stream_kafka()
+    local_stream_kafka()
