@@ -19,6 +19,7 @@ logger = init_logger(os.environ.get("LOGGER_NAME"), logfile='ingestion.log')
 
 from src.common.spark_utils import local_get_spark
 from src.common.config_loader import load_ingestion_configs
+from src.streaming.query_monitoring import QueryMonitoring
 
 import time
 import json
@@ -45,6 +46,7 @@ def local_stream_kafka():
     if kafka_host == "localhost:9092":
         logger.info("SPARK: Acquiring Local Spark with Kafka jars")
         spark = local_get_spark()
+        spark.streams.addListener(QueryMonitoring())
 
     else:
         logger.critical(f"Script only meant to be run for local setup! Failing...")
@@ -81,7 +83,6 @@ def local_stream_kafka():
             logger.error(f"Unexpected Behavior! Value returned was of type: {type(success)}, Value: {success}")
             exit(100)
 
-    monitor_queries(queries=queries, log_interval_sec=30)
 
 
 
@@ -255,6 +256,7 @@ def load_dataframe(spark : SparkSession, df : DataFrame, sink_location : str, ch
                     .format("delta")
                     .outputMode("append")
                     .option("checkpointLocation",checkpoint_location)
+                    .queryName("local_Kafka_ingestion_query")
                     .start(sink_location)
         )
         logger.info(f"STREAM LOADING: WriteStream Started with StreamingQuery: {query}")
