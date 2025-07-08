@@ -1,5 +1,6 @@
 import os
-from sqlalchemy import create_engine, Engine, text
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Engine
 from src.common.logger import get_logger
 from src.common.config_loader import load_schema, load_schema_file_path
 import pandas as pd
@@ -82,7 +83,6 @@ def execute_query(engine : Engine, query : str, response_expected : bool = False
                     response = conn.execute(text(query), values).fetchall()
                     logger.info(f"POSTGRES QUERY EXECUTION: Values: {values} successfully uploaded and response received!")
 
-                conn.commit()
                 return response
 
             else:
@@ -90,7 +90,6 @@ def execute_query(engine : Engine, query : str, response_expected : bool = False
                      conn.execute(text(query))
                 else:
                     conn.execute(text(query), values)
-                conn.commit()
                 logger.info("POSTGRES QUERY EXECUTION: Query executed successfully")
 
     except Exception as e:

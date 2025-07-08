@@ -1,3 +1,5 @@
+# Currenly being used by airflow docker container,
+#So no local Spark available because of databricks-connect
 confluent-kafka~=2.10.1
 python-dotenv
 sqlalchemy==1.4.54

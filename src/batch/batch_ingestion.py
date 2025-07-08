@@ -6,14 +6,14 @@ load_dotenv()
 import os
 from src.common.logger import init_logger
 os.environ["LOGGER_NAME"] = 'batch_logger'
-logger = init_logger(os.environ.get("LOGGER_NAME"), logfile='logs/ingestion.log')
+logger = init_logger(os.environ.get("LOGGER_NAME"), logfile='ingestion.log')
 
 from src.common.config_loader import load_ingestion_configs, load_column_list
-from src.batch.pg_utils import get_engine, execute_query
-from src.common.dbx_utils import get_dbx_session, dbx_execute_query, safe_get_spark, upload_df_to_dbx
-from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql.functions import lit, current_timestamp, current_date, to_json, struct, col, create_map, max, to_utc_timestamp
-from sqlalchemy.engine import Engine
+from src.batch.pg_utils       import get_engine, execute_query
+from src.common.dbx_utils     import safe_get_spark, upload_df_to_dbx
+from pyspark.sql              import SparkSession, DataFrame
+from pyspark.sql.functions    import lit, current_timestamp, current_date, to_json, struct, col, create_map, max, to_utc_timestamp
+from sqlalchemy.engine        import Engine
 
 
 def ingest_dim_store():
