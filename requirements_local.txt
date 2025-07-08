@@ -1,4 +1,5 @@
 # requirements for local kafka streaming
+# Also for local kafka airflow container
 confluent-kafka~=2.10.1
 python-dotenv
 pandas

@@ -4,7 +4,7 @@ load_dotenv()
 
 os.environ['LOGGER_NAME'] = "KAFKA_INGESTION"
 from src.common.logger import init_logger
-logger = init_logger(os.environ.get("LOGGER_NAME"), logfile='./logs/ingestion.log')
+logger = init_logger(os.environ.get("LOGGER_NAME"), logfile='ingestion.log')
 
 
 from src.common.dbx_utils import safe_get_spark

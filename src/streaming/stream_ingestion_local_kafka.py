@@ -15,7 +15,7 @@ load_dotenv()
 
 os.environ['LOGGER_NAME'] = "KAFKA_INGESTION"
 from src.common.logger import init_logger
-logger = init_logger(os.environ.get("LOGGER_NAME"), logfile='./logs/ingestion.log')
+logger = init_logger(os.environ.get("LOGGER_NAME"), logfile='ingestion.log')
 
 from src.common.spark_utils import local_get_spark
 from src.common.config_loader import load_ingestion_configs
@@ -165,15 +165,6 @@ def extract_schema_from_sample(spark : SparkSession, sample_event : str) -> Stru
 def trigger_stream(spark : SparkSession, kafka_host : str, params : dict):
     logger.info(f"STREAM TRIGGERING: Trying to trigger ")
     try:
-        """
-        logger.info(f"STREAM TRIGGERING: Local Kafka Stream from topic: {params['subscribe']}")
-        df = (spark.readStream
-                .format("kafka")
-                .option("kafka.bootstrap.servers", "localhost:9092")
-                .options(**params)
-                .load())
-
-        """
         df = (spark.readStream
                 .format("kafka")
                 .option("kafka.bootstrap.servers", kafka_host)

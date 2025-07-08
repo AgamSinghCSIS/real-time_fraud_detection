@@ -5,7 +5,7 @@ load_dotenv()
 from src.common.logger import init_logger
 
 os.environ["LOGGER_NAME"] = "Producer"
-logger = init_logger(name=os.environ["LOGGER_NAME"], logfile="logs/kafka_producer.log")
+logger = init_logger(name=os.environ["LOGGER_NAME"], logfile="kafka_producer.log")
 
 from src.streaming.kafka_utils import get_producer, simulate_transactions
 
