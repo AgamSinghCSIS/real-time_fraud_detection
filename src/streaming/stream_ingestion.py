@@ -9,7 +9,9 @@ logger = init_logger(os.environ.get("LOGGER_NAME"), logfile='ingestion.log')
 
 from src.common.dbx_utils import safe_get_spark
 from src.common.config_loader import load_ingestion_configs
+from src.streaming.query_monitoring import QueryMonitoring
 
+import time
 import tempfile
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import col, from_json, to_date, array, array_except, map_keys, lit, expr
@@ -30,7 +32,7 @@ def stream_kafka():
     kafka_user = os.environ.get("KAFKA_API_KEY")
     kafka_pass = os.environ.get("KAFKA_API_SECRET")
 
-    if kafka_host == "localhost:9092":
+    if kafka_host == "localhost:9092" or kafka_host == "host.docker.internal:9092":
         logger.critical("KAFKA INGESTION: This script is for Databricks cluster")
         logger.error("KAFKA INGESTION: Run src/streaming/stream_ingestion_local_kafka.py IN A LOCAL ENVIRONMENT")
         logger.info(f"Exiting and failing...")
@@ -38,6 +40,7 @@ def stream_kafka():
     else:
         logger.info(f"SPARK: Acquiring Remote Databricks Spark")
         spark = safe_get_spark()
+        spark.streams.addListener(QueryMonitoring())
 
     queries = []
     for source in sources:
@@ -69,7 +72,12 @@ def stream_kafka():
             logger.error(f"Unexpected Behavior! Value returned was of type: {type(success)}, Value: {success}")
             exit(100)
 
-    monitor_queries(queries=queries, log_interval_sec=30)
+    try:
+        spark.streams.awaitAnyTermination()
+    except KeyboardInterrupt:
+        logger.warning("KeyboadInterrupt caught! Stopping query gracefully...")
+        spark.streams.stop()
+
 
 
 
@@ -156,6 +164,8 @@ def extract_schema_from_sample(spark : SparkSession, sample_event : str) -> Stru
 def trigger_stream(spark : SparkSession, kafka_host : str, params : dict):
     logger.info(f"STREAM TRIGGERING: Trying to trigger ")
     try:
+        # Try and see if kafka.security
+        # If that does not work, try securiy.protocol
         df = (spark.readStream
                 .format("kafka")
                 .option("kafka.bootstrap.servers", kafka_host)
