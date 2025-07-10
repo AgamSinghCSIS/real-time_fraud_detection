@@ -13,6 +13,7 @@ from src.common.logger import get_logger
 class QueryMonitoring(StreamingQueryListener):
     def __init__(self):
         self.logger = get_logger(name=os.environ.get("LOGGER_NAME"))
+        self.active_queries = {}  # Track active queries by query ID
 
     def onQueryStarted(self, event: "QueryStartedEvent") -> None:
         self.logger.info(f"QUERY MONITORING: New Streaming Query Started Successfully!\nQuery Name: {event.name} \nQuery Id: {event.id}")
@@ -42,17 +43,33 @@ class QueryMonitoring(StreamingQueryListener):
             f"With Exception: {exception}"
         )
 
+        self.logger.error(f"QUERY MONITORING: Preparing for Restart Dag call...\nStopping all active queries. ")
+        from pyspark.sql import SparkSession
+        spark = SparkSession.getActiveSession()
+        if spark:
+            for query_id, query_name in list(self.active_queries.items()):
+                if query_id != event.id:  # Skip the terminated query
+                    try:
+                        query = spark.streams.get(query_id)
+                        if query and query.isActive:
+                            query.stop()
+                            self.logger.info(f"Stopped active query: {query_name} (ID: {query_id})")
+                    except Exception as e:
+                        self.logger.error(f"Failed to stop query {query_name} (ID: {query_id}): {str(e)}")
+            # Remove all queries from tracking
+            self.active_queries.clear()
+
         self.logger.info("Triggering Airflow DAG to restart job...")
         trigger_stream_restart_dag(self.logger)
 
 
 
 def trigger_stream_restart_dag(logger):
-    url = os.getenv("AIRFLOW_API_URL", "http://localhost:8080/api/v1/dags/restart_streaming_job/dagRuns")
+    url = os.getenv("AIRFLOW_API_URL", "http://airflow_spark_local:8080/api/v1/dags/restart_streaming_job/dagRuns")
     dag_conf = {"conf": {"reason": "streaming_job_failed"}}
     auth = (os.getenv("AIRFLOW_USER", "admin"), os.getenv("AIRFLOW_PWD", "admin"))
     try:
-        response = requests.post(url, json=dag_conf, auth=auth)
+        response = requests.post(url, json=dag_conf, auth=auth, timeout=30)
         if response.status_code == 200:
             logger.info(f"AIRFLOW DAG TRIGGERED: restart_streaming_job")
         else:
