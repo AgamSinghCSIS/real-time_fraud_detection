@@ -1,0 +1,23 @@
+services:
+  airflow_spark:
+    container_name: airflow_spark_local
+    build:
+      context: .
+      dockerfile: Dockerfile_local
+    environment:
+      - AIRFLOW_HOME=/opt/airflow
+      - PYTHONPATH=/opt/airflow/project/src
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./configs:/opt/airflow/configs
+      - ./makefile:/opt/airflow/makefile
+      - ./.env:/opt/airflow/.env
+      - ./requirements_local.txt:/opt/airflow/requirements_local.txt
+      - ./src:/opt/airflow/project/src
+      - ./entrypoint_local.sh:/opt/airflow/entrypoint_local.sh
+    working_dir: /opt/airflow
+    entrypoint: /opt/airflow/entrypoint_local.sh
+    ports:
+      - "8080:8080"
+    command: webserver

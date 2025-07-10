@@ -9,6 +9,7 @@ from pyspark.sql import SparkSession
 def local_get_spark():
     sa = os.environ.get("AZURE_STORAGE_ACCOUNT")
     access_key = os.environ.get("AZURE_ACCESS_KEY")
+    ivy_path = os.path.expanduser("~/.ivy2").replace("\\", "/")
 
     spark = (SparkSession.builder
              .appName("LocalKafkaIngestion")
@@ -20,7 +21,7 @@ def local_get_spark():
              .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
              .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
              .config("spark.sql.shuffle.partitions", "2")
-             .config("spark.jars.ivy", "~/.ivy2")  # Explicit Ivy cache path
+             .config("spark.jars.ivy", ivy_path)  # Explicit Ivy cache path
              .config("fs.azure.account.key.{}.dfs.core.windows.net".format(sa), access_key) # Azure
              .config("fs.abfss.impl", "org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem")  # Azure
              .getOrCreate()
