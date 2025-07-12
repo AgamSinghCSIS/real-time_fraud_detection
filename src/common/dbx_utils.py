@@ -1,6 +1,5 @@
 import os
 from dotenv import load_dotenv
-from pyspark.errors import AnalysisException
 
 load_dotenv()
 from src.common.logger import get_logger

@@ -25,6 +25,6 @@ with DAG(
 ) as dag:
 
     task = PythonOperator(
-        task_id="Run_ingestion_logic",
+        task_id="run_ingestion_logic",
         python_callable=ingest_dim_store
     )

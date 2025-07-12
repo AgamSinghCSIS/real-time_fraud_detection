@@ -4,7 +4,7 @@ confluent-kafka~=2.10.1
 python-dotenv
 sqlalchemy==1.4.54
 psycopg2-binary==2.9.9
-pandas
+pandas==2.2.2
 pyyaml
 setuptools
 databricks-connect==14.3.0

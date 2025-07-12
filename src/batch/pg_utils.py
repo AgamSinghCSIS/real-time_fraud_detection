@@ -14,6 +14,7 @@ def get_engine(username : str, password : str, host : str, database : str):
     try:
         engine = create_engine(f"postgresql+psycopg2://{username}:{password}@{host}:5432/{database}")
         logger.info(f"Successfully acquired engine!")
+        logger.info(f"TYPE OF ENGINE: {type(engine)}")
         return engine
 
     except Exception as e:
@@ -24,13 +25,18 @@ def get_engine(username : str, password : str, host : str, database : str):
 def upload_file_to_db(filepath, engine, schema_name, table_name, initial_load : bool = False):
     try:
         logger.info(f"Trying to upload file {filepath} to object {schema_name}.{table_name}")
-        with open(filepath) as f:
-            df = pd.read_csv(f)
-            if initial_load:
-                df.to_sql(con=engine, schema=schema_name, name=table_name, index=False, if_exists='fail')
-            else:
-                df.to_sql(con=engine, schema=schema_name, name=table_name, index=False, if_exists='append')
-            logger.info(f"File uploaded Successfully!!!")
+        raw_conn = engine.connect()
+        df = pd.read_csv(filepath)
+
+        if initial_load:
+            df.to_sql(name=table_name, con=raw_conn, schema=schema_name, index=False, if_exists='fail',
+                      method='multi')
+        else:
+            df.to_sql(name=table_name, con=raw_conn, schema=schema_name, index=False, if_exists='append',
+                      method='multi')
+        raw_conn.commit()
+        logger.info(f"File uploaded Successfully!!!")
+
 
     except Exception as e:
         logger.error(f"load_file Function failed with error: {e}")
@@ -90,6 +96,7 @@ def execute_query(engine : Engine, query : str, response_expected : bool = False
                      conn.execute(text(query))
                 else:
                     conn.execute(text(query), values)
+                    conn.commit()
                 logger.info("POSTGRES QUERY EXECUTION: Query executed successfully")
 
     except Exception as e:
