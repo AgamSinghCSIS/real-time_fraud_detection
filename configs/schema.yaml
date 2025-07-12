@@ -1,0 +1,64 @@
+test_table:
+    "dob": "date"
+    "customer_id": "uuid"
+    "registration_date": "timestamp without time zone"
+    "kyc_status": "text"
+    "phone": "text"
+    "name": "text"
+    "email": "text"
+
+users:
+    "user_id": "uuid"
+    "customer_id": "uuid"
+    "dob": "date"
+    "registration_date": "timestamp without time zone"
+    "phone": "text"
+    "kyc_status": "text"
+    "name": "text"
+    "email": "text"
+
+credit_cards:
+    "issued_on": "timestamp without time zone"
+    "customer_id": "uuid"
+    "limit": "numeric"
+    "card_id": "uuid"
+    "status": "text"
+    "credit_card_number": "character varying"
+    "card_type": "text"
+
+credit_card_user_map:
+    "card_id": "uuid"
+    "user_id": "uuid"
+    "linked_on": "timestamp without time zone"
+    "role": "text"
+    "status": "text"
+
+devices:
+    "device_id": "uuid"
+    "user_id": "uuid"
+    "first_seen_at": "timestamp without time zone"
+    "is_verified": "boolean"
+    "device_type": "text"
+    "os": "text"
+
+merchants:
+    "merchant_id": "uuid"
+    "risk_score": "numeric"
+    "name": "text"
+
+transactions:
+    "session_id": "uuid"
+    "user_id":  "uuid"
+    "card_id":  "uuid"
+    "merchant_id": "uuid"
+    "amount": "numeric"
+    "timestamp": "timestamp with time zone"
+    "location": "USER-DEFINED"
+    "device_id": "uuid"
+    "ip_address": "inet"
+    "transaction_id": "uuid"
+    "channel": "character varying"
+
+
+
+

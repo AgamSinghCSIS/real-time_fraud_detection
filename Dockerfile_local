@@ -1,0 +1,46 @@
+# Dockerfile_local
+FROM apache/airflow:2.8.1-python3.10
+
+USER root
+
+# Install Java, Spark dependencies
+RUN apt-get update && \
+    apt-get install -y openjdk-17-jdk-headless wget curl make procps && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Set environment variables
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PATH=$JAVA_HOME/bin:$PATH
+ENV SPARK_VERSION=3.5.3
+ENV HADOOP_VERSION=hadoop3
+ENV SPARK_HOME=/opt/spark
+ENV PATH="${SPARK_HOME}/bin:$PATH"
+ENV PYSPARK_PYTHON=/usr/local/bin/python3.10
+ENV PYSPARK_DRIVER_PYTHON=/usr/local/bin/python3.10
+
+# Install Spark
+RUN wget -qO /tmp/spark.tgz https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-${HADOOP_VERSION}.tgz && \
+    tar -xzf /tmp/spark.tgz -C /opt/ && \
+    mv /opt/spark-${SPARK_VERSION}-bin-${HADOOP_VERSION} /opt/spark && \
+    rm /tmp/spark.tgz
+
+COPY entrypoint_local.sh /entrypoint_local.sh
+RUN chmod +x /entrypoint_local.sh
+
+# Switch back to airflow
+USER airflow
+
+# Install Python deps
+COPY --chown=airflow:airflow requirements_local.txt /tmp/requirements_local.txt
+RUN pip install --upgrade pip && pip install -r /tmp/requirements_local.txt
+
+# Copy project files
+COPY --chown=airflow:airflow ./src /opt/airflow/src
+COPY --chown=airflow:airflow ./dags /opt/airflow/dags
+COPY --chown=airflow:airflow ./configs /opt/airflow/configs
+COPY --chown=airflow:airflow ./makefile /opt/airflow/makefile
+COPY --chown=airflow:airflow .env /opt/airflow/.env
+COPY --chown=airflow:airflow ./logs /opt/airflow/logs
+
+# Run Spark job once at container startup (optional — see below)
+ENTRYPOINT ["/entrypoint_local.sh"]
