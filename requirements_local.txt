@@ -8,3 +8,5 @@ setuptools
 pyspark==3.5.3
 py4j==0.10.9.7
 delta-spark==3.0.0
+requests
+python-dotenv

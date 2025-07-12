@@ -43,7 +43,7 @@ def local_stream_kafka():
     kafka_user = os.environ.get("KAFKA_API_KEY")
     kafka_pass = os.environ.get("KAFKA_API_SECRET")
 
-    if kafka_host == "localhost:9092":
+    if kafka_host == "localhost:9092" or kafka_host == 'host.docker.internal:9092':
         logger.info("SPARK: Acquiring Local Spark with Kafka jars")
         spark = local_get_spark()
         spark.streams.addListener(QueryMonitoring())
@@ -81,9 +81,12 @@ def local_stream_kafka():
 
         else:
             logger.error(f"Unexpected Behavior! Value returned was of type: {type(success)}, Value: {success}")
-            exit(100)
 
-
+    try:
+        spark.streams.awaitAnyTermination()
+    except KeyboardInterrupt:
+        logger.warning("KeyboadInterrupt caught! Stopping query gracefully...")
+        spark.streams.stop()
 
 
 def ingest_stream(spark : SparkSession, kafka_host : str, kafka_user : str, kafka_pass : str, topic_name : str, sink_name : str, checkpoint_location : str, sample_string : str):
@@ -121,7 +124,9 @@ def ingest_stream(spark : SparkSession, kafka_host : str, kafka_user : str, kafk
     if topic_name == 'transactions':
         parsed_df = parsed_df.withColumn("is_chargeback", lit(False))
 
-    write_query = load_dataframe(spark=spark, df=parsed_df, sink_location=sink_name, checkpoint_location=checkpoint_location)
+    query_name = f'local_kafka_ingestion_from_{topic_name}_query'
+
+    write_query = load_dataframe(spark=spark, df=parsed_df, sink_location=sink_name, checkpoint_location=checkpoint_location, query_name=query_name)
     if write_query is False:
         logger.error(f"INGESTING STREAM: Loading Failed")
         return False
@@ -166,11 +171,15 @@ def extract_schema_from_sample(spark : SparkSession, sample_event : str) -> Stru
 def trigger_stream(spark : SparkSession, kafka_host : str, params : dict):
     logger.info(f"STREAM TRIGGERING: Trying to trigger ")
     try:
+        kafka_options = {
+            "kafka.bootstrap.servers": kafka_host,
+            "security.protocol": "PLAINTEXT",
+            **params
+        }
+        logger.info(f"SPARK-SUBMIT MAKEFILE DEBUG: TOTAL KAFKA PARAMS: {kafka_options}")
         df = (spark.readStream
                 .format("kafka")
-                .option("kafka.bootstrap.servers", kafka_host)
-                .option('kafka.security.protocol', "PLAINTEXT")
-                .options(**params)
+                .options(**kafka_options)
                 .load()
         )
         if not df:
@@ -246,7 +255,7 @@ def parse_df(df : DataFrame, expected_schema : StructType):
 
 
 
-def load_dataframe(spark : SparkSession, df : DataFrame, sink_location : str, checkpoint_location : str) -> StreamingQuery:
+def load_dataframe(spark : SparkSession, df : DataFrame, sink_location : str, checkpoint_location : str, query_name : str = None) -> StreamingQuery:
     # Local Script, so cannot use unity catalog location, but will instead need a adls path
     try:
         logger.info(f"STREAM LOADING: Writing microBatch to {sink_location}")
@@ -256,7 +265,7 @@ def load_dataframe(spark : SparkSession, df : DataFrame, sink_location : str, ch
                     .format("delta")
                     .outputMode("append")
                     .option("checkpointLocation",checkpoint_location)
-                    .queryName("local_Kafka_ingestion_query")
+                    .queryName(query_name)
                     .start(sink_location)
         )
         logger.info(f"STREAM LOADING: WriteStream Started with StreamingQuery: {query}")
