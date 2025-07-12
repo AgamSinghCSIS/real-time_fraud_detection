@@ -75,3 +75,12 @@ def load_column_list(table_name):
     logger.error(f"Expected Columns list could not be loaded for table: {table_name}")
     return None
 
+def load_transformation_configs():
+    config_path = os.path.abspath(os.path.join(current_dir, '../../configs/transformation.yaml'))
+    configs = load_config(config_path)
+    if not configs:
+        logger.critical(f"Could not load config file at path: {config_path}")
+        return None
+    else:
+        logger.info(f"Configs loaded from: {config_path}")
+        return configs

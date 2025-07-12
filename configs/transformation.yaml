@@ -1,0 +1,90 @@
+catalog_name: "fraud_catalog"
+ingestion_layer: "raw"
+destination_layer: "silver"
+
+
+objects:
+  - table_name: "customers"
+    source_table: "fraud_catalog.raw.customers"
+    add_surrogate_key: true
+    pii_fields: ["email_masked", "phone_masked"]
+    business_key: "customer_id"
+    schema:
+      "customer_id":  {'derived_from': "customer_id", "type": "STRING"}
+      "full_name":    {'derived_from': "name", "type": "STRING"}
+      "email_masked": {'derived_from': "email", "type": "STRING"}
+      "phone_masked": {'derived_from': "phone", "type": "STRING"}
+      "dob":          {'derived_from': "dob", "type": "DATE"}
+      "kyc_status":   { 'derived_from': "kyc_status", "type": "STRING" }
+      "registration_date": { 'derived_from': "registration_date", "type": "DATE" }
+
+    derived_columns:
+      - column: "age"
+        derived_from: "dob"
+        derived_using: "calculate_age"
+
+  - table_name: "users"
+    source_table: "fraud_catalog.raw.users"
+    add_surrogate_key: true
+    pii_fields: ["email_masked", "phone_masked"]
+    business_key: "user_id"
+    schema:
+      "customer_id":  { 'derived_from': "customer_id", "type": "STRING" }
+      "user_id":      { 'derived_from': "user_id", "type": "STRING" }
+      "full_name":    { 'derived_from': "name", "type": "STRING" }
+      "email_masked": { 'derived_from': "email", "type": "STRING" }
+      "phone_masked": { 'derived_from': "phone", "type": "STRING" }
+      "dob":          { 'derived_from': "dob", "type": "DATE" }
+      "kyc_status":   { 'derived_from': "kyc_status", "type": "STRING" }
+      "registration_date": { 'derived_from': "registration_date", "type": "DATE" }
+
+    derived_columns:
+      - column: "age"
+        derived_from: "dob"
+        derived_using: "calculate_age"
+
+  - table_name: "credit_cards"
+    source_table: "fraud_catalog.raw.credit_cards"
+    add_surrogate_key: true
+    pii_fields: [ "card_last4" ]
+    business_key: "card_id"
+    schema:
+      card_id:     { derived_from: "card_id", type: "STRING" }
+      customer_id: { derived_from: "customer_id", type: "STRING" }
+      card_last4:  { derived_from: "credit_card_number", type: "STRING" }
+      status:      { derived_from: "status", type: "STRING" }
+      issued_on:   { derived_from: "issued_on", type: "DATE" }
+      limit:       { derived_from: "limit", type: "NUMERIC" }
+
+  - table_name: "credit_card_user_map"
+    source_table: "fraud_catalog.raw.credit_card_user_map"
+    add_surrogate_key: true
+    business_key: "user_id"
+    schema:
+      card_id: { derived_from: "card_id", type: "STRING" }
+      user_id: { derived_from: "user_id", type: "STRING" }
+      role:    { derived_from: "role", type: "STRING" }
+      status:  { derived_from: "status", type: "STRING" }
+      linked_on: { derived_from: "linked_on", type: "DATE" }
+
+  - table_name: "merchants"
+    source_table: "fraud_catalog.raw.merchants"
+    add_surrogate_key: true
+    business_key: "merchant_id"
+    schema:
+      merchant_id:   { derived_from: "merchant_id", type: "STRING" }
+      merchant_name: { derived_from: "name", type: "STRING" }
+      merchant_risk_tier: { derived_from: "risk_score", type: "STRING" }
+
+  - table_name: "devices"
+    source_table: "fraud_catalog.raw.devices"
+    add_surrogate_key: true
+    business_key: "device_id"
+    schema:
+      device_id:     { derived_from: "device_id", type: "STRING" }
+      user_id:       { derived_from: "user_id", type: "STRING" }
+      first_seen_at: { derived_from: "first_seen_at", type: "TIMESTAMP" }
+      device_type:   { derived_from: "device_type", type: "STRING" }
+      os: { derived_from: "os", type: "STRING" }
+      is_verified: { derived_from: "is_verified", type: "STRING" }
+
