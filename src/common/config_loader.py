@@ -84,3 +84,14 @@ def load_transformation_configs():
     else:
         logger.info(f"Configs loaded from: {config_path}")
         return configs
+
+
+def load_stream_transformation_configs():
+    config_path = os.path.abspath(os.path.join(current_dir, '../../configs/stream_transformation.yaml'))
+    configs = load_config(config_path)
+    if not configs:
+        logger.critical(f"Could not load stream config file at path: {config_path}")
+        return None
+    else:
+        logger.info(f"Stream Transformation Configs loaded from: {config_path}")
+        return configs['streams']

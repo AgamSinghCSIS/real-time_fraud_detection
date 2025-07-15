@@ -86,5 +86,5 @@ objects:
       first_seen_at: { derived_from: "first_seen_at", type: "TIMESTAMP" }
       device_type:   { derived_from: "device_type", type: "STRING" }
       os: { derived_from: "os", type: "STRING" }
-      is_verified: { derived_from: "is_verified", type: "STRING" }
+      is_verified: { derived_from: "is_verified", type: "BOOLEAN" }
 

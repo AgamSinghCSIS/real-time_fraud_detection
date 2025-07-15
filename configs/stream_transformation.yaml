@@ -1,0 +1,79 @@
+streams:
+  - name: login_events
+    source_table: "fraud_catalog.raw.login_events"
+    sink_table: "fraud_catalog.silver.login_events"
+    checkpoint_location: 'abfss://silver@safrauddetection.dfs.core.windows.net/checkpoint/login_events'
+    schema:
+      login_id: {derived_from: 'login_id', type: 'STRING'}
+      user_id:  {derived_from: 'user_id', type: 'STRING'}
+      device_id:  {derived_from: 'device_id', type: 'STRING'}
+      ip_address: {derived_from: 'ip_address', type: 'STRING'}
+      geo_location: {derived_from: 'ip_address', type: 'STRING'}
+      timestamp: {derived_from: 'timestamp', type: 'TIMESTAMP'}
+      session_id: {derived_from: 'session_id', type: 'STRING'}
+
+    lookups:
+      - column: "ip_address"
+        udf: "ip_to_country"
+        new_column: "ip_country"
+
+    joins:
+      - table: 'fraud_catalog.silver.users'
+        key: 'user_id'
+        broadcast: false
+        columns:
+          "user_name": {derived_from: 'full_name'}
+          "user_email_masked": {derived_from: 'email_masked'}
+          "user_registration_date": {derived_from: 'registration_date'}
+
+      - table: 'fraud_catalog.silver.devices'
+        key: 'device_id'
+        broadcast: true
+        columns:
+          "device_first_seen_at": { derived_from: 'first_seen_at' }
+          "device_is_verified": { derived_from: 'is_verified' }
+
+  - name: transactions
+    source_table: "fraud_catalog.raw.transactions"
+    sink_table: "fraud_catalog.silver.transactions"
+    checkpoint_location: 'abfss://silver@safrauddetection.dfs.core.windows.net/checkpoint/transactions'
+    schema:
+      transaction_id: { derived_from: 'transaction_id', type: 'STRING' }
+      user_id: { derived_from: 'user_id', type: 'STRING' }
+      card_id: { derived_from: 'card_id', type: 'STRING' }
+      merchant_id: { derived_from: 'merchant_id', type: 'STRING' }
+      amount: { derived_from: 'amount', type: 'NUMERIC' }
+      location: { derived_from: 'location', type: 'STRING' }
+      device_id: { derived_from: 'device_id', type: 'STRING' }
+      ip_address: { derived_from: 'ip_address', type: 'STRING' }
+      timestamp: { derived_from: 'timestamp', type: 'TIMESTAMP' }
+      channel: { derived_from: 'channel', type: 'STRING' }
+      session_id: { derived_from: 'session_id', type: 'STRING' }
+      is_chargeback: { derived_from: 'is_chargeback', type: 'STRING' }
+
+    lookups:
+      - column: "ip_address"
+        udf: "ip_to_country"
+        new_column: "ip_country"
+
+    joins:
+      - table: 'fraud_catalog.silver.users'
+        key: 'user_id'
+        broadcast: false
+        columns:
+          "user_email_masked": { derived_from: 'email_masked' }
+          "user_registration_date": { derived_from: 'registration_date' }
+
+      - table: 'fraud_catalog.silver.credit_cards'
+        key: 'card_id'
+        broadcast: false
+        columns:
+          "card_status": { derived_from: 'status' }
+          "card_limit": { derived_from: 'limit' }
+
+      - table: 'fraud_catalog.silver.merchants'
+        key: 'merchant_id'
+        broadcast: true
+        columns:
+          "merchant_name": { derived_from: 'merchant_name' }
+          "merchant_risk_score": { derived_from: 'merchant_risk_tier' }

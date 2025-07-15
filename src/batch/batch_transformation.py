@@ -16,7 +16,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-os.environ["LOGGER_NAME"] = 'batch_transformation'
+os.environ["LOGGER_NAME"] = 'DIMSTORE_TRANSFORMATION'
 from src.common.logger import init_logger
 
 logger = init_logger(os.environ.get("LOGGER_NAME"), logfile='transformation.log')

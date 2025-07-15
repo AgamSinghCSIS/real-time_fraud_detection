@@ -13,8 +13,9 @@ from src.streaming.query_monitoring import QueryMonitoring
 
 import time
 import tempfile
+import json
 from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql.functions import col, from_json, to_date, array, array_except, map_keys, lit, expr
+from pyspark.sql.functions import col, from_json, to_date, array, array_except, map_keys, lit, expr, when, size
 from pyspark.sql.types import StructType, MapType, StringType
 from pyspark.sql.streaming.query import StreamingQuery
 
