@@ -12,6 +12,10 @@ pyspark==3.4.1
 py4j==0.10.9.7
 apache-airflow==2.8.1
 geoip2
+python-dotenv
+deltalake
+deltalake[pyarrow]
+prometheus-client
 snowflake-sqlalchemy!=*
 sqlalchemy-bigquery!=*
 sqlalchemy-redshift!=*
