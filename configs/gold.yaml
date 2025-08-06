@@ -1,0 +1,53 @@
+batch:
+  - job_name: "user_fraud_summary"
+    source_table: "silver.users"
+    output_table: "gold.user_fraud_summary"
+    columns:
+      user_id: { derived_from: "user_id", type: "STRING" }
+      customer_id: { derived_from: "customer_id", type: "STRING" }
+      user_name : { derived_from: "full_name", type: "STRING" }
+      age: { derived_from: "age", type: "INT" }
+      registration_date: { derived_from: "registration_date", type: "DATE" }
+
+    joins:
+      - table: "silver.customers"
+        key: "customer_id"
+        columns:
+          account_owner_name: { derived_from: "full_name", type: "STRING" }
+
+      - table: "silver.credit_cards"
+        key: "customer_id"
+        columns:
+          card_id: { derived_from: "card_id", type: "STRING" }
+          card_limit: { derived_from: "limit", type: "INT" }
+
+      - table: "silver.transactions"
+        key: "card_id"
+        group_by: ["card_id"]
+        columns:
+          total_transactions: { derived_from: "COALESCE(COUNT(transaction_id), 0)", type: "LONG" }
+          total_amount_spent: { derived_from: "COALESCE(SUM(amount), 0)", type: "DOUBLE" }
+          avg_transaction_amount: { derived_from: "COALESCE(AVG(amount), 0)", type: "DOUBLE" }
+          fraud_transaction_count: { derived_from: "COALESCE(SUM(CASE WHEN fraud_flag = true THEN 1 ELSE 0 END), 0)", type: "LONG" }
+          last_transaction_ts: { derived_from: "MAX(timestamp)", type: "TIMESTAMP" }
+
+  - job_name: "fraud_transactions_summary"
+    source_table: "silver.transactions"
+    output_table: "gold.fraud_transactions_summary"
+    upsert_key: 'card_id'
+    filter: "fraud_flag = true"
+    columns:
+      transaction_id: { derived_from: "transaction_id", type: "STRING" }
+      user_id: { derived_from: "user_id", type: "STRING" }
+      merchant_name: { derived_from: "merchant_name", type: "STRING" }
+      card_id: { derived_from: "card_id", type: "STRING" }
+      amount: { derived_from: "amount", type: "DOUBLE" }
+      card_limit: { derived_from: "card_limit", type: "INT" }
+      is_chargeback: { derived_from: "is_chargeback", type: "BOOLEAN" }
+      timestamp: { derived_from: "timestamp", type: "TIMESTAMP" }
+      country: { derived_from: "ip_country", type: "STRING" }
+      rule_triggered: { derived_from: "rule_triggered", type: "STRING" }
+
+
+
+

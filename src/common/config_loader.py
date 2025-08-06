@@ -75,3 +75,66 @@ def load_column_list(table_name):
     logger.error(f"Expected Columns list could not be loaded for table: {table_name}")
     return None
 
+def load_transformation_configs():
+    config_path = os.path.abspath(os.path.join(current_dir, '../../configs/transformation.yaml'))
+    configs = load_config(config_path)
+    if not configs:
+        logger.critical(f"Could not load config file at path: {config_path}")
+        return None
+    else:
+        logger.info(f"Configs loaded from: {config_path}")
+        return configs
+
+
+def load_local_transformation_configs():
+    config_path = os.path.abspath(os.path.join(current_dir, '../../configs/local_batch_transformation.yaml'))
+    configs = load_config(config_path)
+    if not configs:
+        logger.critical(f"Could not load config file at path: {config_path}")
+        return None
+    else:
+        logger.info(f"Configs loaded from: {config_path}")
+        return configs
+
+
+def load_stream_transformation_configs():
+    config_path = os.path.abspath(os.path.join(current_dir, '../../configs/stream_transformation.yaml'))
+    configs = load_config(config_path)
+    if not configs:
+        logger.critical(f"Could not load stream config file at path: {config_path}")
+        return None
+    else:
+        logger.info(f"Stream Transformation Configs loaded from: {config_path}")
+        return configs['streams']
+
+
+def load_local_stream_transformation_configs():
+    config_path = os.path.abspath(os.path.join(current_dir, '../../configs/local_stream_transformation.yaml'))
+    configs = load_config(config_path)
+    if not configs:
+        logger.critical(f"Could not load stream config file at path: {config_path}")
+        return None
+    else:
+        logger.info(f"Stream Transformation Configs loaded from: {config_path}")
+        return configs['streams']
+
+def load_local_stream_gold_configs():
+    config_path = os.path.abspath(os.path.join(current_dir, '../../configs/gold.yaml'))
+    configs = load_config(config_path)
+    if not configs:
+        logger.critical(f"Could not load stream config file at path: {config_path}")
+        return None
+    else:
+        logger.info(f"Stream Transformation Configs loaded from: {config_path}")
+        return configs['streaming']
+
+
+def load_local_batch_gold_configs():
+    config_path = os.path.abspath(os.path.join(current_dir, '../../configs/gold.yaml'))
+    configs = load_config(config_path)
+    if not configs:
+        logger.critical(f"Could not load stream config file at path: {config_path}")
+        return None
+    else:
+        logger.info(f"Stream Transformation Configs loaded from: {config_path}")
+        return configs['batch']

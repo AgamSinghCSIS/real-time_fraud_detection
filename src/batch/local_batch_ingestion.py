@@ -10,10 +10,43 @@ logger = init_logger(os.environ.get("LOGGER_NAME"), logfile='ingestion.log')
 
 from src.common.config_loader import load_ingestion_configs, load_column_list
 from src.batch.pg_utils       import get_engine, execute_query
-from src.common.dbx_utils     import safe_get_spark, upload_df_to_dbx
+from src.common.spark_utils   import local_get_spark, upload_df_to_local
 from pyspark.sql              import SparkSession, DataFrame
 from pyspark.sql.functions    import lit, current_timestamp, current_date, to_json, struct, col, create_map, max, to_utc_timestamp
 from sqlalchemy.engine        import Engine
+from prometheus_client import Counter, Gauge, CollectorRegistry, push_to_gateway
+from time import perf_counter
+
+REGISTRY = CollectorRegistry()
+GATEWAY_URL = os.environ.get("PROMETHEUS_PUSH_GATEWAY_URL")
+
+INGESTION_COUNTER = Counter("ingestion_batch_runs_counter",
+                "This counter is supposed to track"
+                             " how many times the ingestion tables have been processed",
+                   ["pipeline"],
+                       registry=REGISTRY
+                )
+
+INGESTION_PROCESSED_RECORDS = Counter("ingestion_records_processed_counter",
+                                 "This counter is "
+                                              "used to count the number of records"
+                                              "that have been processed into the "
+                                              "ingestion layer",
+                                 ["pipeline", "job_name"],
+                       registry=REGISTRY
+                                 )
+
+INGESTION_INPROGRESS_RECORDS = Gauge("ingestion_records_inprogress",
+                                "This metric is used to measure how many "
+                                "records are currently in progress by the ingestion layer",
+                                ["pipeline", "job_name"],
+                       registry=REGISTRY)
+
+SPARK_STARTUP_TIME = Gauge("ingestion_spark_startup_time", "This metric represents the amount on time it took for spark to start in seconds",
+                           ["pipeline"],
+                       registry=REGISTRY)
+
+PIPELINE_NAME = "INGESTION_DIMENSION_STORE"
 
 
 
@@ -27,7 +60,10 @@ def ingest_dim_store():
         database=os.environ.get("DIMSTORE_DB")
     )
 
-    spark = safe_get_spark()
+    spark_get_start = perf_counter()
+    spark = local_get_spark()
+    spark_get_end = perf_counter()
+    SPARK_STARTUP_TIME.labels(PIPELINE_NAME).set(spark_get_end - spark_get_start)
 
     configs = load_ingestion_configs(pipeline="batch", source='DIM_Store')
     table_list = configs['tables']
@@ -51,6 +87,7 @@ def ingest_table(engine : Engine, spark : SparkSession, source_table : str, sink
     print(f"Last Mod ts: {last_mod_ts}")
 
     if not last_mod_ts:
+        print("Quitting")
         logger.critical("Stopping Ingestion because watermark Extraction failed")
         logger.error(f"Stopping Ingestion for now until rds is up. Run manually again")
         exit(100)
@@ -63,8 +100,10 @@ def ingest_table(engine : Engine, spark : SparkSession, source_table : str, sink
     if cdc_df.isEmpty():
         # Load other tables where data may have been added
         logger.warning(f"Received Dataframe is empty! No new Data?\nSkipping Ingestion for table: {source_table}")
+        job = "ingestion_" + source_table
+        push_to_gateway(gateway=GATEWAY_URL, registry=REGISTRY, job=job)
         return
-
+    INGESTION_INPROGRESS_RECORDS.labels(PIPELINE_NAME, source_table).inc(cdc_df.count())
     print("SOURCE DF:")
     cdc_df.show()
 
@@ -84,9 +123,10 @@ def ingest_table(engine : Engine, spark : SparkSession, source_table : str, sink
     if watermark_success:
         logger.info(f"Watermark table updated Successfully! Starting Upload to Raw Layer table: {sink_table}")
         #ingestion_success = upload_df_to_dbx(df=enriched_df, dbx_table_name=sink_table, output_mode="append")
-        ingestion_success = upload_df_to_dbx(df=enriched_df, dbx_table_name=sink_table, output_mode="append")
+        ingestion_success = upload_df_to_local(df=enriched_df, table_name=sink_table, output_mode="append")
         if ingestion_success:
             logger.info(f"INGESTION : SUCCESSFUL for {source_table}")
+
         else:
             logger.error(f"INGESTION : FAILED for {source_table}")
             logger.info(f"INGESTION : RESETTING WATERMARK to last known value before ingestion iteration")
@@ -99,6 +139,10 @@ def ingest_table(engine : Engine, spark : SparkSession, source_table : str, sink
     else:
         logger.error(f"Not uploading Data to Raw Lake because watermarking failed!")
         logger.info(f"IMPLEMENT RETRIES")
+    job = "ingestion_" + source_table
+    INGESTION_INPROGRESS_RECORDS.labels(PIPELINE_NAME, source_table).dec(enriched_df.count())
+    INGESTION_PROCESSED_RECORDS.labels(PIPELINE_NAME, source_table).inc(enriched_df.count())
+    push_to_gateway(gateway=GATEWAY_URL, registry=REGISTRY, job=job)
 
     # D : Maybe add fail-safe in place as well? Raw layer so no need of any schema
     # No need of great Expectations for schema
@@ -265,6 +309,7 @@ def cast_to_string(df : DataFrame, except_columns : list):
 
 if __name__ == "__main__":
     ingest_dim_store()
+
 
 
 

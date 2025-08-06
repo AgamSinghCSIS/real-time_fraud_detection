@@ -10,3 +10,8 @@ py4j==0.10.9.7
 delta-spark==3.0.0
 requests
 python-dotenv
+geoip2
+sqlalchemy
+psycopg2
+geoip2
+prometheus-client

@@ -45,8 +45,10 @@ def simulate_transactions(login_file_path : str, transaction_file_path : str, pr
     with open(login_file_path) as l, open(transaction_file_path) as t:
         lgn_reader = DictReader(l)
         txn_list = list(DictReader(t))
-
+        i = 0
         for login in lgn_reader:
+            if i == 5_000:
+                break
             login_key = login[key_dict[login_topic]]
             login_record = json.dumps(login)
             producer.produce(
@@ -55,10 +57,12 @@ def simulate_transactions(login_file_path : str, transaction_file_path : str, pr
                 value=login_record.encode('utf-8'),
                 callback=delivery_report
             )
+            producer.poll(0)
 
-            txn_list = find(login["session_id"], txn_list)
+            matching_txns = find(login["session_id"], txn_list)
+            logger.debug(f"COUNT OF TRANSACTIONS: {len(txn_list)}")
 
-            for txn in txn_list:
+            for txn in matching_txns:
                 txn_key = txn[key_dict[transaction_topic]]
                 txn_record = json.dumps(txn)
                 print(txn_key, txn_record)
@@ -68,6 +72,8 @@ def simulate_transactions(login_file_path : str, transaction_file_path : str, pr
                     value=txn_record.encode('utf-8'),
                     callback=delivery_report
                 )
+            producer.poll(0)
+            i += 1
         producer.flush()
 
 def find(session_id, txn_data : list):

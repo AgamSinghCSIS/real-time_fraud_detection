@@ -32,6 +32,6 @@ def producer_main(login_file, transaction_file, login_topic : str = 'logins', tr
 
 
 if __name__ == '__main__':
-    producer_main(login_file='../../data/test_logins.csv', transaction_file='../../data/test_transactions.csv')
+    producer_main(login_file='../../data/logins.csv', transaction_file='../../data/transactions.csv')
 
 
