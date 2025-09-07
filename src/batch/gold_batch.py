@@ -7,46 +7,21 @@ load_dotenv()
 sys.path.insert(0, '~/PycharmProjects/local_fdp_project/')
 
 os.environ['LOGGER_NAME'] = "GOLD_BATCH"
+os.environ['SPARK_JOB_PORT'] = "4040"
+
 from src.common.logger import init_logger
 logger = init_logger(os.environ.get("LOGGER_NAME"), logfile='gold.log')
 
 from src.common.config_loader import load_local_batch_gold_configs
 from src.common.spark_utils import local_get_spark
+from src.batch.batch_metrics import collect_and_push_metrics
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import col, broadcast, expr
-from prometheus_client import Counter, Gauge, CollectorRegistry, push_to_gateway
+from prometheus_client import CollectorRegistry
 from time import perf_counter
 
-REGISTRY = CollectorRegistry()
-GATEWAY_URL = os.environ.get("PROMETHEUS_PUSH_GATEWAY_URL")
-
-GOLD_COUNTER = Counter("gold_batch_runs_counter",
-                "This counter is supposed to track"
-                             " how many times the gold tables have been processed",
-                   ["pipeline"],
-                       registry=REGISTRY
-                )
-
-GOLD_PROCESSED_RECORDS = Counter("gold_records_processed_counter",
-                                 "This counter is "
-                                              "used to count the number of records"
-                                              "that have been processed into the "
-                                              "gold layer",
-                                 ["pipeline", "job_name"],
-                       registry=REGISTRY
-                                 )
-
-GOLD_INPROGRESS_RECORDS = Gauge("gold_records_inprogress",
-                                "This metric is used to measure how many "
-                                "records are currently in progress by the gold layer",
-                                ["pipeline", "job_name"],
-                       registry=REGISTRY)
-
-SPARK_STARTUP_TIME = Gauge("gold_spark_startup_time", "This metric represents the amount on time it took for spark to start in seconds",
-                           ["pipeline"],
-                       registry=REGISTRY)
-
+LAYER = "GOLD"
 PIPELINE_NAME = "GOLD_BATCH_OVERWRITE"
 
 
@@ -64,12 +39,15 @@ def process_gold_tables():
     spark_get_start = perf_counter()
     spark = local_get_spark()
     spark_get_end = perf_counter()
-    SPARK_STARTUP_TIME.labels(PIPELINE_NAME).set(spark_get_end - spark_get_start)
+
+    spark_startup_time = spark_get_end - spark_get_start
 
     logger.info(f"GOLD BATCH: Spark Session Successfully obtained")
 
     for config in configs:
-        GOLD_COUNTER.labels(PIPELINE_NAME).inc()
+        processing_time_start = perf_counter()
+        REGISTRY = CollectorRegistry()
+
         batch_name         = config['job_name']
         batch_source_table = config['source_table']
         batch_sink_table   = config['output_table']
@@ -98,7 +76,6 @@ def process_gold_tables():
             logger.exception("GOLD batch: Df trigger returned False")
             logger.info(f"GOLD batch: Skipping batch Triggering for source: {batch_name}")
             continue
-        GOLD_INPROGRESS_RECORDS.labels(PIPELINE_NAME, batch_name).inc(df.count())
         logger.info(f"GOLD batch: Filtering Source Columns...")
         schema_applied_df = apply_schema_to_dataframe(df=df, schema=source_cols)
 
@@ -117,16 +94,11 @@ def process_gold_tables():
             joined_df = schema_applied_df
 
         sink_write(df=joined_df, sink_table=batch_sink_table)
-        GOLD_INPROGRESS_RECORDS.labels(PIPELINE_NAME, batch_name).dec(df.count())
-        GOLD_PROCESSED_RECORDS.labels(PIPELINE_NAME, batch_name).inc(df.count())
-        print("Gold end for ", batch_name)
-        job = "gold_" + batch_name
-        push_to_gateway(gateway=GATEWAY_URL, registry=REGISTRY, job=job)
-    print(
-        "ALL SUCCESSFUL RUNS"
-    )
-
-
+        processing_time = perf_counter() - processing_time_start
+        collect_and_push_metrics(spark=spark, df=df, pipeline_layer=LAYER, job_name=batch_name,
+                                 spark_startup_time=spark_startup_time, processing_duration=processing_time,
+                                 registry=REGISTRY)
+    print("ALL SUCCESSFUL RUNS")
 
 
 def read_batch(spark : SparkSession, source : str, filters : list = None):

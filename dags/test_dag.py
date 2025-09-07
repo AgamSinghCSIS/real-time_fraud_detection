@@ -4,7 +4,7 @@ import sys
 print("DAG working directory:", os.getcwd())
 print("DAG sys.path:", sys.path)
 print("DAG PYTHONPATH env:", os.getenv('PYTHONPATH'))
-sys.path.insert(0, '/opt/airflow/')
+sys.path.insert(0, '/opt/airflow/project/')
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator

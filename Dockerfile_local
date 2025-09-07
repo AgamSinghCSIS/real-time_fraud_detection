@@ -27,6 +27,9 @@ RUN wget -qO /tmp/spark.tgz https://archive.apache.org/dist/spark/spark-${SPARK_
 COPY entrypoint_local.sh /entrypoint_local.sh
 RUN chmod +x /entrypoint_local.sh
 
+# Create logs directory and set permissions
+RUN mkdir -p /opt/airflow/logs && chown -R airflow:root /opt/airflow
+
 # Switch back to airflow
 USER airflow
 
@@ -35,12 +38,12 @@ COPY --chown=airflow:airflow requirements_local.txt /tmp/requirements_local.txt
 RUN pip install --upgrade pip && pip install -r /tmp/requirements_local.txt
 
 # Copy project files
-COPY --chown=airflow:airflow ./src /opt/airflow/src
-COPY --chown=airflow:airflow ./dags /opt/airflow/dags
-COPY --chown=airflow:airflow ./configs /opt/airflow/configs
-COPY --chown=airflow:airflow ./makefile /opt/airflow/makefile
-COPY --chown=airflow:airflow .env /opt/airflow/.env
-COPY --chown=airflow:airflow ./logs /opt/airflow/logs
+#COPY --chown=airflow:airflow ./src /opt/airflow/src
+#COPY --chown=airflow:airflow ./dags /opt/airflow/dags
+#COPY --chown=airflow:airflow ./configs /opt/airflow/configs
+#COPY --chown=airflow:airflow ./makefile /opt/airflow/makefile
+#COPY --chown=airflow:airflow .env /opt/airflow/.env
+#COPY --chown=airflow:airflow ./logs /opt/airflow/logs
 
 # Run Spark job once at container startup (optional — see below)
 ENTRYPOINT ["/entrypoint_local.sh"]

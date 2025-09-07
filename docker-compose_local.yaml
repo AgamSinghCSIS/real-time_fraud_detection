@@ -7,6 +7,8 @@ services:
     environment:
       - AIRFLOW_HOME=/opt/airflow
       - PYTHONPATH=/opt/airflow/project/src
+      - AIRFLOW__WEBSERVER__WEB_SERVER_PORT=8080
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
@@ -14,10 +16,46 @@ services:
       - ./makefile:/opt/airflow/makefile
       - ./.env:/opt/airflow/.env
       - ./requirements_local.txt:/opt/airflow/requirements_local.txt
-      - ./src:/opt/airflow/project/src
+      - ./src:/opt/airflow/src
       - ./entrypoint_local.sh:/opt/airflow/entrypoint_local.sh
     working_dir: /opt/airflow
     entrypoint: /opt/airflow/entrypoint_local.sh
     ports:
+      - "8793:8793"
       - "8080:8080"
-    command: webserver
+
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: prometheus-fdp
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/rules:/etc/prometheus/rules
+      - prometheus-data:/prometheus
+
+  grafana:
+    image: grafana/grafana-oss:11.1.0
+    container_name: grafana-fdp
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      # - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+
+  pushgateway:
+    image: prom/pushgateway:v1.9.0
+    container_name: pushgateway-fdp
+    restart: unless-stopped
+    ports:
+      - "9091:9091"
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus-data:
+  grafana-data:

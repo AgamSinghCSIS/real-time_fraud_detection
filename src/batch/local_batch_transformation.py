@@ -10,13 +10,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 os.environ["LOGGER_NAME"] = 'DIMSTORE_TRANSFORMATION'
-from src.common.logger import init_logger
+os.environ['SPARK_JOB_PORT'] = "4040"
 
+from src.common.logger import init_logger
 logger = init_logger(os.environ.get("LOGGER_NAME"), logfile='transformation.log')
 
 from src.common.config_loader import load_local_transformation_configs
 #from src.common.dbx_utils import safe_get_spark
 from src.common.spark_utils import local_get_spark
+from src.batch.batch_metrics import collect_and_push_metrics
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import (
     max, col, current_date, datediff, floor, concat,
@@ -25,41 +27,16 @@ from pyspark.sql.functions import (
 )
 from delta.tables import DeltaTable
 from datetime import datetime
-from prometheus_client import Counter, Gauge, CollectorRegistry, push_to_gateway
+from prometheus_client import CollectorRegistry
 from time import perf_counter
 
-REGISTRY = CollectorRegistry()
-GATEWAY_URL = os.environ.get("PROMETHEUS_PUSH_GATEWAY_URL")
 
-TRANSFORMATION_COUNTER = Counter("transformation_batch_runs_counter",
-                "This counter is supposed to track"
-                             " how many times the transformation tables have been processed",
-                   ["pipeline"],
-                       registry=REGISTRY
-                )
 
-TRANSFORMATION_PROCESSED_RECORDS = Counter("transformation_records_processed_counter",
-                                 "This counter is "
-                                              "used to count the number of records"
-                                              "that have been processed into the "
-                                              "transformation layer",
-                                 ["pipeline", "job_name"],
-                       registry=REGISTRY
-                                 )
-
-TRANSFORMATION_INPROGRESS_RECORDS = Gauge("transformation_records_inprogress",
-                                "This metric is used to measure how many "
-                                "records are currently in progress by the transformation layer",
-                                ["pipeline", "job_name"],
-                       registry=REGISTRY)
-
-SPARK_STARTUP_TIME = Gauge("transformation_spark_startup_time", "This metric represents the amount on time it took for spark to start in seconds",
-                           ["pipeline"],
-                       registry=REGISTRY)
-
+LAYER = "SILVER"
 PIPELINE_NAME = "TRANSFORMATION_DIMENSION_STORE"
-
-
+REGISTRY = None
+spark_startup_time = None
+processing_time_start = None
 
 def transform_dims_to_silver():
 
@@ -75,10 +52,18 @@ def transform_dims_to_silver():
     spark_get_start = perf_counter()
     spark = local_get_spark()
     spark_get_end = perf_counter()
-    SPARK_STARTUP_TIME.labels(PIPELINE_NAME).set(spark_get_end - spark_get_start)
+
+    global spark_startup_time
+    spark_startup_time = spark_get_end - spark_get_start
 
     for table in tables:
+
         print(table)
+        global REGISTRY
+        global processing_time_start
+        REGISTRY = CollectorRegistry()
+        processing_time_start = perf_counter()
+
         table_name = table['table_name']
         logger.info(f"TRANSFORMATION: Processing table: {table_name}")
 
@@ -124,7 +109,6 @@ def transform_dims_to_silver():
             #exit(100)
             continue
         logger.info(f"TRANSFORMATION -> LOADING Bronze table Successful!")
-        TRANSFORMATION_INPROGRESS_RECORDS.labels(PIPELINE_NAME, table_name).inc(bronze_df.count())
 
         logger.info(f"TRANSFORMATION -> FILTERING Dataframe...")
         filtered_df = filter_df_with_schema(df=bronze_df, schema=table_schema)
@@ -193,10 +177,10 @@ def transform_dims_to_silver():
         elif success is True:
             logger.info(f"TRANSFORMATION -> UPSERT Successful!")
 
-        TRANSFORMATION_INPROGRESS_RECORDS.labels(PIPELINE_NAME, table_name).dec(bronze_df.count())
-        TRANSFORMATION_PROCESSED_RECORDS.labels(PIPELINE_NAME, table_name).inc(bronze_df.count())
-        push_to_gateway(GATEWAY_URL, registry=REGISTRY, job=f"transformation_{table_name}")
-
+        processing_time = perf_counter() - processing_time_start
+        collect_and_push_metrics(spark=spark, df=bronze_df, pipeline_layer=LAYER, job_name=table_name,
+                                 spark_startup_time=spark_startup_time, processing_duration=processing_time,
+                                 registry=REGISTRY)
 
 
 def load_bronze_data(spark : SparkSession, source_table: str, ts : datetime):

@@ -1,9 +1,12 @@
+import os
 from src.common.spark_utils import local_get_spark
 
 # === Configuration ===
 DELTA_TABLE_PATH = "file:///C:/fraud_detection_project/gold/user_fraud_summary"  # path to your delta table
 EXPORT_FORMAT = "parquet"  # can also be "csv"
 EXPORT_PATH = f"file:///C:/fraud_detection_project/powerbi/user_fraud_summary/"
+
+os.environ['SPARK_JOB_PORT'] = "4040"
 
 
 def main():

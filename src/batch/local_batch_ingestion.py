@@ -1,58 +1,38 @@
 import datetime
+import time
+
 from dotenv import load_dotenv
 from pyspark.sql.types import MapType, StringType
 
 load_dotenv()
 import os
 from src.common.logger import init_logger
+
 os.environ["LOGGER_NAME"] = 'batch_logger'
+os.environ['SPARK_JOB_PORT'] = "4040"
+
 logger = init_logger(os.environ.get("LOGGER_NAME"), logfile='ingestion.log')
 
 from src.common.config_loader import load_ingestion_configs, load_column_list
 from src.batch.pg_utils       import get_engine, execute_query
 from src.common.spark_utils   import local_get_spark, upload_df_to_local
+from src.batch.batch_metrics  import collect_and_push_metrics
+
 from pyspark.sql              import SparkSession, DataFrame
 from pyspark.sql.functions    import lit, current_timestamp, current_date, to_json, struct, col, create_map, max, to_utc_timestamp
 from sqlalchemy.engine        import Engine
-from prometheus_client import Counter, Gauge, CollectorRegistry, push_to_gateway
+from prometheus_client import CollectorRegistry
 from time import perf_counter
 
 REGISTRY = CollectorRegistry()
-GATEWAY_URL = os.environ.get("PROMETHEUS_PUSH_GATEWAY_URL")
-
-INGESTION_COUNTER = Counter("ingestion_batch_runs_counter",
-                "This counter is supposed to track"
-                             " how many times the ingestion tables have been processed",
-                   ["pipeline"],
-                       registry=REGISTRY
-                )
-
-INGESTION_PROCESSED_RECORDS = Counter("ingestion_records_processed_counter",
-                                 "This counter is "
-                                              "used to count the number of records"
-                                              "that have been processed into the "
-                                              "ingestion layer",
-                                 ["pipeline", "job_name"],
-                       registry=REGISTRY
-                                 )
-
-INGESTION_INPROGRESS_RECORDS = Gauge("ingestion_records_inprogress",
-                                "This metric is used to measure how many "
-                                "records are currently in progress by the ingestion layer",
-                                ["pipeline", "job_name"],
-                       registry=REGISTRY)
-
-SPARK_STARTUP_TIME = Gauge("ingestion_spark_startup_time", "This metric represents the amount on time it took for spark to start in seconds",
-                           ["pipeline"],
-                       registry=REGISTRY)
-
+LAYER = 'BRONZE'
 PIPELINE_NAME = "INGESTION_DIMENSION_STORE"
-
+spark_startup_time = None
+processing_time_start = None
 
 
 def ingest_dim_store():
     # Step 1: Get your connections Database and Databricks
-
     engine = get_engine(
         host=os.environ.get("DIMSTORE_HOST"),
         username=os.environ.get("DIMSTORE_USER"),
@@ -63,20 +43,24 @@ def ingest_dim_store():
     spark_get_start = perf_counter()
     spark = local_get_spark()
     spark_get_end = perf_counter()
-    SPARK_STARTUP_TIME.labels(PIPELINE_NAME).set(spark_get_end - spark_get_start)
+
+    global spark_startup_time
+    spark_startup_time = spark_get_end - spark_get_start
 
     configs = load_ingestion_configs(pipeline="batch", source='DIM_Store')
     table_list = configs['tables']
     watermark_table = configs['watermark_table']
 
     for table in table_list:
+        global processing_time_start
+        processing_time_start = perf_counter()
+
         source_schema = table['source_schema'] # test (just cuz schema exists in the config)
         source_table = table['source_table']
         sink_table = table['sink_table']
         replication_key = table['replication_column']
         logger.info(f"Starting Ingestion for {source_table} into Raw Layer table: {sink_table}")
         ingest_table(engine=engine, spark=spark, source_table=source_table, sink_table=sink_table, repl_col=replication_key)
-
 
 
 def ingest_table(engine : Engine, spark : SparkSession, source_table : str, sink_table : str, repl_col : str):
@@ -97,16 +81,12 @@ def ingest_table(engine : Engine, spark : SparkSession, source_table : str, sink
     cdc_query = f"SELECT * FROM {source_table} WHERE {repl_col} > '{last_mod_ts}'"
     cdc_df = spark_jdbc_reader(spark=spark, query=cdc_query)
 
-    if cdc_df.isEmpty():
+    if cdc_df.count() == 0:
         # Load other tables where data may have been added
         logger.warning(f"Received Dataframe is empty! No new Data?\nSkipping Ingestion for table: {source_table}")
-        job = "ingestion_" + source_table
-        push_to_gateway(gateway=GATEWAY_URL, registry=REGISTRY, job=job)
         return
-    INGESTION_INPROGRESS_RECORDS.labels(PIPELINE_NAME, source_table).inc(cdc_df.count())
     print("SOURCE DF:")
     cdc_df.show()
-
 
     #C : Add Metadata to the Dataframe
     enriched_df = enrich_metadata(raw_df=cdc_df, source_table=source_table)
@@ -139,14 +119,12 @@ def ingest_table(engine : Engine, spark : SparkSession, source_table : str, sink
     else:
         logger.error(f"Not uploading Data to Raw Lake because watermarking failed!")
         logger.info(f"IMPLEMENT RETRIES")
-    job = "ingestion_" + source_table
-    INGESTION_INPROGRESS_RECORDS.labels(PIPELINE_NAME, source_table).dec(enriched_df.count())
-    INGESTION_PROCESSED_RECORDS.labels(PIPELINE_NAME, source_table).inc(enriched_df.count())
-    push_to_gateway(gateway=GATEWAY_URL, registry=REGISTRY, job=job)
 
     # D : Maybe add fail-safe in place as well? Raw layer so no need of any schema
     # No need of great Expectations for schema
-
+    global processing_time_start
+    processing_time = perf_counter() - processing_time_start
+    collect_and_push_metrics(spark=spark, df=cdc_df, pipeline_layer=LAYER, job_name=source_table, spark_startup_time=spark_startup_time, processing_duration=processing_time, registry=REGISTRY)
 
 
 def get_last_modified_ts(engine : Engine, object: str, key : str) :
@@ -218,7 +196,6 @@ def spark_jdbc_reader(spark : SparkSession, query : str):
     logger.info(f"SPARK JDBC READER: Successfully executed query {wrapped_query} on host. Returning Dataframe")
     #print(df.select(to_utc_timestamp(max(col("last_modified_at")), "PST")).collect()[0][0])
     return df
-
 
 
 def enrich_metadata(raw_df : DataFrame, source_table : str):

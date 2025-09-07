@@ -11,6 +11,15 @@ def local_get_spark():
     access_key = os.environ.get("AZURE_ACCESS_KEY")
     ivy_path = os.path.expanduser("~/.ivy2").replace("\\", "/")
 
+    SPARK_PORT = os.environ.get("SPARK_JOB_PORT", "4040")
+
+    with open("metrics.properties", "w") as f:
+        f.write("""
+            *.sink.prometheusServlet.class=org.apache.spark.metrics.sink.PrometheusServlet
+            *.sink.prometheusServlet.path=/metrics
+            *.sink.prometheusServlet.period=10
+        """)
+
     spark = (SparkSession.builder
              .appName("LocalKafkaIngestion")
              .master("local[2]")
@@ -27,6 +36,9 @@ def local_get_spark():
              .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
              .config("spark.sql.warehouse.dir", "C:/fraud_detection_project/metastore/")
              .config("javax.jdo.option.ConnectionURL", "jdbc:derby:C:/fraud_detection_project/metastore/metastore_db;create=true")
+             .config("spark.files", "metrics.properties")
+             .config("spark.metrics.conf", "metrics.properties")
+             .config("spark.ui.port", SPARK_PORT)
              .enableHiveSupport()
              .getOrCreate()
              )

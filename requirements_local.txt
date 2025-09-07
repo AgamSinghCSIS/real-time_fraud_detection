@@ -12,6 +12,6 @@ requests
 python-dotenv
 geoip2
 sqlalchemy
-psycopg2
+psycopg2-binary
 geoip2
 prometheus-client
