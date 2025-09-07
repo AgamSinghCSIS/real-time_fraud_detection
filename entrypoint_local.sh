@@ -1,4 +1,5 @@
 #!/bin/bash
+export AIRFLOW__WEBSERVER__WEB_SERVER_PORT=8080
 export AIRFLOW__CORE__LOAD_EXAMPLES=False
 export PYTHONPATH="${PYTHONPATH}:/opt/airflow/src"
 export PYSPARK_PYTHON=/usr/local/bin/python3.10
@@ -11,7 +12,7 @@ if ! command -v /usr/local/bin/python3.10 &> /dev/null; then
 fi
 echo "[INFO] Python 3.10 found at /usr/local/bin/python3.10" >> /opt/airflow/logs/spark_submit.log /usr/local/bin/python3.10 --version >> /opt/airflow/logs/spark_submit.log 2>&1
 # Ensure logs dir exists
-#mkdir -p /opt/airflow/logs
+mkdir -p /opt/airflow/logs
 
 # Initialize Airflow DB
 airflow db init
@@ -26,18 +27,15 @@ airflow users create \
 
 
 # Start scheduler in background
-airflow scheduler &
+#airflow scheduler &
+/entrypoint airflow scheduler &
 
-echo "[INFO] Booting container and launching Spark job once..." >> /opt/airflow/logs/spark_submit.log
-cd /opt/airflow || exit 1
+# Skip Spark job until Kafka is available
+echo "[INFO] Skipping Spark job (Kafka not running)..." >> /opt/airflow/logs/spark_submit.log
+# Uncomment the following to run Spark job when Kafka is ready
+# cd /opt/airflow || exit 1
+# make run_stream >> /opt/airflow/logs/spark_submit.log 2>&1 &
 
-# Run Spark job once
-make run_stream >> /opt/airflow/logs/spark_submit.log 2>&1
-
-# Optional: tail the output so it's visible in `docker logs`
-echo "[INFO] Spark job completed. Starting Airflow webserver..."
-#exec /entrypoint airflow webserver
-
-
-# Start webserver
-exec airflow webserver
+# Start Airflow webserver
+echo "[INFO] Starting Airflow webserver..." >> /opt/airflow/logs/spark_submit.log
+exec /entrypoint airflow webserver --port 8080

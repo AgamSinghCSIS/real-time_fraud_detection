@@ -46,33 +46,42 @@ def simulate_transactions(login_file_path : str, transaction_file_path : str, pr
         lgn_reader = DictReader(l)
         txn_list = list(DictReader(t))
         i = 0
+
         for login in lgn_reader:
-            if i == 5_000:
-                break
-            login_key = login[key_dict[login_topic]]
-            login_record = json.dumps(login)
-            producer.produce(
-                topic=login_topic,
-                key=login_key.encode('utf-8'),
-                value=login_record.encode('utf-8'),
-                callback=delivery_report
-            )
-            producer.poll(0)
+            print(i)
+            if i < 12_000:
+                i += 1
+                continue
 
-            matching_txns = find(login["session_id"], txn_list)
-            logger.debug(f"COUNT OF TRANSACTIONS: {len(txn_list)}")
-
-            for txn in matching_txns:
-                txn_key = txn[key_dict[transaction_topic]]
-                txn_record = json.dumps(txn)
-                print(txn_key, txn_record)
+            elif i >= 12000 and i < 13_000:
+                login_key = login[key_dict[login_topic]]
+                login_record = json.dumps(login)
                 producer.produce(
-                    topic=transaction_topic,
-                    key=txn_key.encode('utf-8'),
-                    value=txn_record.encode('utf-8'),
+                    topic=login_topic,
+                    key=login_key.encode('utf-8'),
+                    value=login_record.encode('utf-8'),
                     callback=delivery_report
                 )
-            producer.poll(0)
+                producer.poll(0)
+
+                matching_txns = find(login["session_id"], txn_list)
+                logger.debug(f"COUNT OF TRANSACTIONS: {len(txn_list)}")
+
+                for txn in matching_txns:
+                    txn_key = txn[key_dict[transaction_topic]]
+                    txn_record = json.dumps(txn)
+                    print(txn_key, txn_record)
+                    producer.produce(
+                        topic=transaction_topic,
+                        key=txn_key.encode('utf-8'),
+                        value=txn_record.encode('utf-8'),
+                        callback=delivery_report
+                    )
+                producer.poll(0)
+
+            if i >= 13_000:
+                break
+
             i += 1
         producer.flush()
 

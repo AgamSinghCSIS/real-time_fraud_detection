@@ -32,6 +32,6 @@ def producer_main(login_file, transaction_file, login_topic : str = 'logins', tr
 
 
 if __name__ == '__main__':
-    producer_main(login_file='../../data/logins.csv', transaction_file='../../data/transactions.csv')
+    producer_main(login_file=r'C:\Users\Agampaul Singh\PycharmProjects\local_fdp_project\data\logins.csv', transaction_file=r'C:\Users\Agampaul Singh\PycharmProjects\local_fdp_project\data\transactions.csv')
 
 

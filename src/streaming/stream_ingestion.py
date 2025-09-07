@@ -6,6 +6,7 @@ os.environ['LOGGER_NAME'] = "KAFKA_INGESTION"
 from src.common.logger import init_logger
 logger = init_logger(os.environ.get("LOGGER_NAME"), logfile='ingestion.log')
 
+os.environ['SPARK_JOB_PORT'] = "4041"
 
 from src.common.dbx_utils import safe_get_spark
 from src.common.config_loader import load_ingestion_configs
@@ -18,6 +19,41 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import col, from_json, to_date, array, array_except, map_keys, lit, expr, when, size
 from pyspark.sql.types import StructType, MapType, StringType
 from pyspark.sql.streaming.query import StreamingQuery
+from prometheus_client import Counter, Gauge, CollectorRegistry, start_http_server
+from time import perf_counter
+
+REGISTRY = CollectorRegistry()
+GATEWAY_URL = os.environ.get("PROMETHEUS_PUSH_GATEWAY_URL")
+
+INGESTION_COUNTER = Counter("ingestion_batch_runs_counter",
+                "This counter is supposed to track"
+                             " how many times the ingestion tables have been processed",
+                   ["pipeline"],
+                       registry=REGISTRY
+                )
+
+INGESTION_PROCESSED_RECORDS = Counter("ingestion_records_processed_counter",
+                                 "This counter is "
+                                              "used to count the number of records"
+                                              "that have been processed into the "
+                                              "ingestion layer",
+                                 ["pipeline", "job_name"],
+                       registry=REGISTRY
+                                 )
+
+INGESTION_INPROGRESS_RECORDS = Gauge("ingestion_records_inprogress",
+                                "This metric is used to measure how many "
+                                "records are currently in progress by the ingestion layer",
+                                ["pipeline", "job_name"],
+                       registry=REGISTRY)
+
+SPARK_STARTUP_TIME = Gauge("ingestion_spark_startup_time", "This metric represents the amount on time it took for spark to start in seconds",
+                           ["pipeline"],
+                       registry=REGISTRY)
+
+PIPELINE_NAME = "INGESTION_DIMENSION_STORE"
+
+
 
 def stream_kafka():
     sources = load_ingestion_configs(pipeline='streaming', source='kafka')

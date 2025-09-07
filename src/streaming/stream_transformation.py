@@ -6,6 +6,8 @@ os.environ['LOGGER_NAME'] = "KAFKA_TRANSFORMATION"
 from src.common.logger import init_logger
 logger = init_logger(os.environ.get("LOGGER_NAME"), logfile='transformation.log')
 
+os.environ['SPARK_JOB_PORT'] = "4042"
+
 import geoip2.database
 import time
 from pyspark.sql import SparkSession, DataFrame

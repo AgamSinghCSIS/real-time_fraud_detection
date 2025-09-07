@@ -6,6 +6,9 @@ load_dotenv()
 sys.path.insert(0, '~/PycharmProjects/local_fdp_project/')
 
 os.environ['LOGGER_NAME'] = "KAFKA_TRANSFORMATION"
+os.environ['SPARK_JOB_PORT'] = "4042"
+PROMETHEUS_HTTP_PORT = 9101
+
 from src.common.logger import init_logger
 logger = init_logger(os.environ.get("LOGGER_NAME"), logfile='transformation.log')
 
@@ -28,6 +31,41 @@ GEOIP_DB_PATH = 'C:/fraud_detection_project/geoip2/GeoLite2-Country.mmdb'
 from src.common.config_loader import load_local_stream_transformation_configs
 from src.common.spark_utils import local_get_spark
 from src.streaming.query_monitoring import QueryMonitoring
+from prometheus_client import Counter, Gauge, start_http_server
+from time import perf_counter
+
+#REGISTRY = CollectorRegistry()
+GATEWAY_URL = os.environ.get("PROMETHEUS_PUSH_GATEWAY_URL")
+
+SILVER_COUNTER = Counter("silver_batch_runs_counter",
+                "This counter is supposed to track"
+                             " how many times the silver tables have been processed",
+                   ["pipeline"]
+                       #registry=REGISTRY
+                )
+
+SILVER_PROCESSED_RECORDS = Counter("silver_records_processed_counter",
+                                 "This counter is "
+                                              "used to count the number of records"
+                                              "that have been processed into the "
+                                              "silver layer",
+                                 ["pipeline", "job_name"]
+                       #registry=REGISTRY
+                                 )
+
+SILVER_INPROGRESS_RECORDS = Gauge("silver_records_inprogress",
+                                "This metric is used to measure how many "
+                                "records are currently in progress by the silver layer",
+                                ["pipeline", "job_name"]
+                       #registry=REGISTRY
+                        )
+
+SPARK_STARTUP_TIME = Gauge("silver_spark_startup_time", "This metric represents the amount on time it took for spark to start in seconds",
+                           ["pipeline"]
+                       #registry=REGISTRY
+                        )
+
+PIPELINE_NAME = "SILVER_STREAMING_TRANSFORMATION"
 
 
 def transform_streams():
@@ -38,7 +76,11 @@ def transform_streams():
         streams = load_local_stream_transformation_configs()
 
         logger.info(f"STREAM TRANSFORMATION: Register Spark Session -> LOCAL ")
+
+        spark_get_start = perf_counter()
         spark = local_get_spark()
+        spark_get_end = perf_counter()
+
         spark.streams.addListener(QueryMonitoring())
 
         for stream in streams:
@@ -106,7 +148,6 @@ def transform_streams():
                                 .queryName(queryName=f"{stream_name}_StreamingQuery")
                                 .start()
                 )
-
             else:
                 query = (joined_df.writeStream
                          .format("delta")
@@ -473,4 +514,5 @@ def get_context_aggregated_df(spark : SparkSession, batch_df : DataFrame):
 
 
 if __name__ == "__main__":
+    start_http_server(int(PROMETHEUS_HTTP_PORT))
     transform_streams()

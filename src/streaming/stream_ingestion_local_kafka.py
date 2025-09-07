@@ -1,6 +1,7 @@
 import sys
 import os
-
+print("Python executable:", sys.executable)
+print("Python version:", sys.version)
 # Add the project root folder (one level above 'src') to PYTHONPATH
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -14,6 +15,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 os.environ['LOGGER_NAME'] = "KAFKA_INGESTION"
+os.environ['SPARK_JOB_PORT'] = "4041"
+PROMETHEUS_HTTP_PORT = 9100
+
 from src.common.logger import init_logger
 logger = init_logger(os.environ.get("LOGGER_NAME"), logfile='ingestion.log')
 
@@ -28,6 +32,8 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import col, from_json, to_date, array, array_except, map_keys, lit, expr, when, size
 from pyspark.sql.types import StructType, MapType, StringType
 from pyspark.sql.streaming.query import StreamingQuery
+
+
 
 def local_stream_kafka():
     sources = load_ingestion_configs(pipeline='streaming', source='kafka')

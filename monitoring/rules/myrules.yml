@@ -1,0 +1,24 @@
+groups:
+    - name: my-rules
+      rules:
+        - record: job:windows_cpu_time:avg_idle
+          expr: avg(rate(windows_cpu_time_total{mode="idle"}[5m]))
+          
+        - alert: WinowsExporterDown
+          expr: up{job="windows-exporter"} == 0
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Windows Node Exporter has gone down"
+            description: "Instance: {{ $labels.instance }} Job: {{ $labels.job}} has been down for: {{ $value }}"
+            app_link: 'http://localhost:9182'
+
+        - record: job:startup_latency:1m
+          expr: gold_spark_startup_time
+
+        - alert: SparkLatencyAbove1m
+          expr:  job:startup_latency:1m > 1m
+          for: 2m
+          labels:
+            severity: critical

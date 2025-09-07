@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 #from src.common.logger import get_logger
-from src.batch.batch_ingestion import ingest_dim_store
+from src.batch.local_batch_ingestion import ingest_dim_store
 
 with DAG(
     dag_id="dimstore_to_raw_ingestion_dag",
